@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, Write, WebFetch, WebSearch
 
 # /make-reel Pipeline
 
-Orchestrate the 5-stage content creation pipeline below. Work sequentially. Stop and report clearly if any stage fails. Never skip a stage.
+Orchestrate the content creation pipeline below. Work sequentially. Stop and report clearly if any stage fails. Never skip a stage unless it is explicitly marked conditional.
 
 ## 0. Parse Arguments & Load Environment
 
@@ -228,14 +228,14 @@ EOF
 
 ## 6.7. Stage 6 — Publish (conditional)
 
-Runs only if `--auto-publish` was passed in `$ARGUMENTS`.
+Runs only if `--auto-publish` was present in `$ARGUMENTS`. Parse the value that follows `--auto-publish` as `$AUTO_PUBLISH`.
+
+If `$AUTO_PUBLISH` is set, run:
 
 ```bash
-if [ -n "$AUTO_PUBLISH" ]; then
-  python3 scripts/publish.py \
-    --session-dir "$SESSION_DIR" \
-    --platform "$AUTO_PUBLISH"
-fi
+python3 scripts/publish.py \
+  --session-dir "$SESSION_DIR" \
+  --platform "$AUTO_PUBLISH"
 ```
 
 If the publish step ran, append a `Published:` line to the done report.
