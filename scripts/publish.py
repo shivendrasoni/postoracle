@@ -182,12 +182,15 @@ def _send_email(session_dir: Path, platforms: list[str], results: dict, config: 
     body = f"Session: {session_dir}\n\n{platform_summary}"
 
     import json
-    subprocess.run(
+    result = subprocess.run(
         ["composio", "execute", "GMAIL_SEND_EMAIL", "-d",
          json.dumps({"to": recipient, "subject": subject, "body": body})],
         capture_output=True,
         text=True,
     )
+    if result.returncode != 0:
+        err = result.stderr.strip() or result.stdout.strip()
+        print(f"[WARN] Email notification failed: {err}", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
@@ -228,6 +231,8 @@ def publish(
             results[p] = handler(session_dir, caption, config)
         except PublishError as exc:
             results[p] = {"success": False, "url": None, "error": str(exc)}
+        except Exception as exc:
+            results[p] = {"success": False, "url": None, "error": f"Unexpected error: {exc}"}
 
     if not dry_run:
         _send_email(session_dir, platforms, results, config)
