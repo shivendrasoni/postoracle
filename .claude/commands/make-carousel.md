@@ -1,0 +1,170 @@
+---
+description: Generate a 5–6 slide carousel (images + caption) ready to post on Instagram or LinkedIn.
+argument-hint: "<point|url|github-repo> [--platform instagram|linkedin] [--slides 5|6] [--auto|--preview|--manual]"
+allowed-tools: Bash, Read, Write, WebFetch, WebSearch
+---
+
+# /make-carousel Pipeline
+
+Orchestrate the carousel creation pipeline below. Work sequentially. Stop and report clearly if any stage fails. Never skip a stage.
+
+## 0. Parse Arguments & Load Environment
+
+Parse `$ARGUMENTS`:
+- `<input>` — everything before any `--` flags (required); can be plain text, HTTP URL, or GitHub repo URL
+- `--platform` — default `instagram` (→ 1080×1080); `linkedin` → 1080×1350
+- `--slides` — default `5`; `6` adds one extra value slide
+- mode flag — `--preview` (default), `--auto`, or `--manual`
+
+Load environment from `.env` in the project root:
+```bash
+set -a && source "$(pwd)/.env" && set +a
+```
+
+Confirm `OPENAI_API_KEY` is set. If missing, stop and tell the user exactly which key is absent.
+
+## 1. Create Session Folder
+
+Do NOT use `create_session.py` — it hardcodes `output/reels/`. Create the carousel session directory directly:
+
+```bash
+TODAY=$(date +%Y-%m-%d)
+SLUG=$(echo "$INPUT" | python3 -c "
+import re, sys
+text = sys.stdin.read().strip()
+text = re.sub(r'https?://\S+', 'url', text)
+text = text.lower()
+text = re.sub(r'[^a-z0-9]+', '-', text)
+print(text.strip('-')[:40])
+")
+SESSION_DIR="$(pwd)/output/carousels/${TODAY}-${SLUG}"
+mkdir -p "$SESSION_DIR"
+echo "Session folder: $SESSION_DIR"
+```
+
+## 2. Stage 1 — Research
+
+**If input starts with `https://github.com`:**
+- Use `WebFetch` on the repo URL to fetch the README
+- Summarize key points and hooks (~300 words)
+- Write to `$SESSION_DIR/research.md`
+
+**If input starts with `http` (non-GitHub URL):**
+- Use `WebFetch` to fetch the URL
+- Summarize key claims and hooks (~300 words)
+- Write to `$SESSION_DIR/research.md`
+
+**If input is plain text:**
+- Treat the text as the core point
+- Write a brief research summary directly to `$SESSION_DIR/research.md`
+
+Log: `✓ Stage 1 complete`
+
+## 3. Stage 2 — Plan Slides
+
+Read `$SESSION_DIR/research.md`. Deliberate on the narrative arc. Write `$SESSION_DIR/plan.json`.
+
+When planning, always explain:
+- The narrative arc (hook → value → CTA)
+- Layout choices for any non-`text-only` slide
+
+**Slide structure rules:**
+- Slide 1: type `hook`, layout `image-bg-text`
+- Last slide: type `cta`, layout `image-bg-text`
+- Middle slides: type `value`, layout `text-only` by default
+- A middle slide gets `image-split` only when a visual adds clear signal (diagram, before/after) — never on text-heavy slides
+- For `--slides 5`: hook + 3 value + CTA
+- For `--slides 6`: hook + 4 value + CTA
+
+**Platform dimensions:**
+- `instagram`: 1080×1080
+- `linkedin`: 1080×1350
+
+**plan.json schema:**
+```json
+{
+  "platform": "instagram",
+  "dimensions": { "width": 1080, "height": 1080 },
+  "slides": [
+    { "index": 1, "type": "hook", "headline": "...", "subtext": "...", "layout": "image-bg-text", "image_prompt": "..." },
+    { "index": 2, "type": "value", "headline": "...", "body": "...", "layout": "text-only", "image_prompt": null }
+  ],
+  "post_caption": "Full social post text with hashtags...",
+  "slide_captions": ["Slide 1 copy", "Slide 2 copy"]
+}
+```
+
+Validate: `plan.json` must have at least 3 slides. If fewer, re-plan once. If still invalid after one retry, stop and report.
+
+Log: `✓ Stage 2 complete`
+
+## 4. Stage 2.5 — Plan Gate (mode-dependent)
+
+**`--preview` (default):**
+Present the full plan to the user (narrative arc + all slides summary). Wait for approval. Iterate on `plan.json` until the user approves. Only proceed to Stage 3 after explicit approval.
+
+**`--auto`:**
+Skip the gate. Proceed directly to render. Exception: if the input was genuinely ambiguous (multiple meaningful angles exist), pause and ask ONE clarifying question before rendering.
+
+**`--manual`:**
+Present the full plan. After user approves the arc, step through slide-by-slide: show the plan for slide N → wait for user approval → render slide N → move to N+1.
+
+## 5. Stage 3 — Render
+
+**`--preview` and `--auto` modes (render all at once):**
+
+Check whether `CAROUSEL-BRAND.json` exists in the project root:
+
+```bash
+if [ -f "$(pwd)/CAROUSEL-BRAND.json" ]; then
+  python3 scripts/generate_carousel.py "$SESSION_DIR/plan.json" \
+    --out-dir "$SESSION_DIR" \
+    --brand "$(pwd)/CAROUSEL-BRAND.json"
+else
+  python3 scripts/generate_carousel.py "$SESSION_DIR/plan.json" \
+    --out-dir "$SESSION_DIR"
+fi
+```
+
+**`--manual` mode (render one slide at a time):**
+
+For each slide N, after user approves that slide:
+
+```bash
+if [ -f "$(pwd)/CAROUSEL-BRAND.json" ]; then
+  python3 scripts/generate_carousel.py "$SESSION_DIR/plan.json" \
+    --out-dir "$SESSION_DIR" \
+    --brand "$(pwd)/CAROUSEL-BRAND.json" \
+    --slide N
+else
+  python3 scripts/generate_carousel.py "$SESSION_DIR/plan.json" \
+    --out-dir "$SESSION_DIR" \
+    --slide N
+fi
+```
+
+After all slides are rendered in `--manual` mode, write `$SESSION_DIR/caption.txt` from `plan.json`'s `post_caption` and `slide_captions` fields.
+
+Log: `✓ Stage 3 complete`
+
+## 6. Done
+
+Report to user:
+```
+✓ /make-carousel complete
+Folder: $SESSION_DIR
+Slides: $SESSION_DIR/1.png … N.png
+Caption: $SESSION_DIR/caption.txt
+```
+
+## Deliberation Rules (all modes)
+
+Claude must always:
+- Justify layout choices — briefly explain why a slide got `image-split` vs `text-only`
+- Flag ambiguity before acting — if the input supports two meaningfully different angles, surface them (even in `--auto`)
+- Reason about the arc — explain the narrative arc when presenting a plan
+
+Claude must never:
+- Ask questions it can answer through research or reasonable judgment
+- Render images before the plan gate is passed (in `--preview` and `--manual` modes)
+- Produce more than one clarifying question per pause point
