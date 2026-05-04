@@ -182,15 +182,18 @@ def _send_email(session_dir: Path, platforms: list[str], results: dict, config: 
     body = f"Session: {session_dir}\n\n{platform_summary}"
 
     import json
-    result = subprocess.run(
-        ["composio", "execute", "GMAIL_SEND_EMAIL", "-d",
-         json.dumps({"to": recipient, "subject": subject, "body": body})],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        err = result.stderr.strip() or result.stdout.strip()
-        print(f"[WARN] Email notification failed: {err}", file=sys.stderr)
+    try:
+        result = subprocess.run(
+            ["composio", "execute", "GMAIL_SEND_EMAIL", "-d",
+             json.dumps({"to": recipient, "subject": subject, "body": body})],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            err = result.stderr.strip() or result.stdout.strip()
+            print(f"[WARN] Email notification failed: {err}", file=sys.stderr)
+    except (FileNotFoundError, OSError) as exc:
+        print(f"[WARN] Email notification failed: {exc}", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------

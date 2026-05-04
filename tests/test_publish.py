@@ -147,3 +147,24 @@ def test_missing_config_skips_email(tmp_path):
     email_calls = [c for c in mock_run.call_args_list
                    if "agent-mail" in str(c) or "GMAIL" in str(c).upper()]
     assert len(email_calls) == 0
+
+
+# ---------------------------------------------------------------------------
+# _send_email: FileNotFoundError when composio is not installed
+# ---------------------------------------------------------------------------
+
+def test_send_email_composio_not_found_does_not_raise(tmp_path, capsys):
+    from scripts.publish import _send_email
+
+    session_dir = tmp_path / "test-session"
+    session_dir.mkdir()
+
+    config = {"notify_enabled": True, "notify_email": "test@example.com"}
+
+    with patch("scripts.publish.subprocess.run", side_effect=FileNotFoundError("composio not found")):
+        # Should NOT raise — should print a [WARN] instead
+        _send_email(session_dir, ["instagram"], {"instagram": {"success": True, "url": None}}, config)
+
+    captured = capsys.readouterr()
+    assert "[WARN]" in captured.err
+    assert "Email notification failed" in captured.err
