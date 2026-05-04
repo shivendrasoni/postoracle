@@ -80,8 +80,8 @@ The core `publish()` function:
    - Reel: `caption.md` — extracts text under `## Post Caption` section
    - Carousel: `caption.txt` — extracts text after `[POST CAPTION]` line
 4. Loops over resolved platforms, calls each handler, collects results
-5. If `notify_enabled` in config and all handlers resolved: sends email via agent-mail
-6. Prints a result summary per platform
+5. After all handlers complete (regardless of per-platform success/failure): if `notify_enabled` in config, sends email via agent-mail with the full per-platform result summary
+6. Prints a result summary per platform (succeeded / failed / skipped)
 
 ### Adding a New Platform
 
@@ -156,7 +156,7 @@ Identical treatment: parse `--auto-publish`, add the same Stage 6 block after St
 **Argument hint:** `"<partial-name-or-path>" --platform instagram|linkedin|all`
 
 **Flow:**
-1. Search `vault/outputs/reels/` and `vault/outputs/carousels/` for folders whose name contains the input string (case-insensitive)
+1. If input starts with `/`, `./`, or `vault/` — treat as a direct path to a session folder, skip search. Otherwise, search `vault/outputs/reels/` and `vault/outputs/carousels/` for folders whose name contains the input string (case-insensitive)
 2. If 0 matches → `[ERROR] No session found matching '<input>'`
 3. If exactly 1 match → proceed
 4. If 2+ matches → list them with full paths and last-modified timestamps, ask user to pick by number. Wait for input before continuing.
