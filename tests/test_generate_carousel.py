@@ -16,6 +16,7 @@ from scripts.generate_carousel import (
     write_caption,
     render_all,
     FALLBACK_PALETTE,
+    SQUARE_SAFE_PAD,
 )
 
 # ---------------------------------------------------------------------------
@@ -129,6 +130,36 @@ def test_render_slide_text_only_produces_png(tmp_path):
     assert out_path.exists()
     img = Image.open(out_path)
     assert img.size == (1080, 1080)
+
+
+# ---------------------------------------------------------------------------
+# 4b. render_slide produces an 80px brand-color safe-zone border on all sides
+# ---------------------------------------------------------------------------
+
+def test_render_slide_has_safe_zone_border(tmp_path):
+    """Corner pixels must be brand primary; inner content starts at SQUARE_SAFE_PAD."""
+    slide = {
+        "index": 2,
+        "type": "value",
+        "headline": "Border Test",
+        "body": "Body text",
+        "layout": "text-only",
+        "image_prompt": None,
+    }
+    out_path = tmp_path / "2.png"
+    brand = dict(FALLBACK_PALETTE)
+    render_slide(slide, out_path, {"width": 1080, "height": 1080}, brand)
+
+    img = Image.open(out_path)
+    expected_rgb = tuple(int(brand["primary"].lstrip("#")[i:i+2], 16) for i in (0, 2, 4))
+    pad = SQUARE_SAFE_PAD
+    # All four corners should be brand primary
+    assert img.getpixel((0, 0)) == expected_rgb
+    assert img.getpixel((1079, 0)) == expected_rgb
+    assert img.getpixel((0, 1079)) == expected_rgb
+    assert img.getpixel((1079, 1079)) == expected_rgb
+    # Last border pixel before inner content
+    assert img.getpixel((pad - 1, pad - 1)) == expected_rgb
 
 
 # ---------------------------------------------------------------------------

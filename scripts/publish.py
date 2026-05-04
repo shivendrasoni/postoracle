@@ -7,6 +7,7 @@ Usage:
 """
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -14,6 +15,8 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
+
+COMPOSIO_BIN = str(Path.home() / ".composio" / "composio")
 
 
 class PublishError(Exception):
@@ -36,13 +39,46 @@ def _instagram_reel(session_dir: Path, caption: str, config: dict) -> dict:
 
 def _instagram_carousel(session_dir: Path, caption: str, config: dict) -> dict:
     image_paths = sorted(str(p) for p in session_dir.glob("*.png") if p.name[0].isdigit())
-    return _composio_call(
-        slug="INSTAGRAM_CREATE_CAROUSEL_POST",
-        payload={
-            "image_paths": image_paths,
-            "caption": caption,
-        },
+    _check_composio()
+    script = f"""
+const container = await execute("INSTAGRAM_CREATE_CAROUSEL_CONTAINER", {{
+  ig_user_id: "me",
+  caption: {json.dumps(caption)},
+  child_image_files: {json.dumps(image_paths)},
+}});
+if (!container.data?.id) {{
+  console.log(JSON.stringify({{ success: false, error: "No container ID: " + JSON.stringify(container.data) }}));
+  process.exit(0);
+}}
+const published = await execute("INSTAGRAM_POST_IG_USER_MEDIA_PUBLISH", {{
+  ig_user_id: "me",
+  creation_id: container.data.id,
+}});
+const ig_media_id = published.data?.id;
+let permalink = null;
+if (ig_media_id) {{
+  try {{
+    const media = await execute("INSTAGRAM_GET_IG_MEDIA", {{ ig_media_id, fields: "permalink" }});
+    permalink = media.data?.permalink || null;
+  }} catch (_) {{}}
+}}
+console.log(JSON.stringify({{ success: true, url: permalink }}));
+"""
+    result = subprocess.run(
+        [COMPOSIO_BIN, "run", "--logs-off", script],
+        capture_output=True,
+        text=True,
     )
+    if result.returncode != 0:
+        err = result.stderr.strip() or result.stdout.strip()
+        if "not connected" in err.lower() or "not authenticated" in err.lower():
+            return {"success": False, "url": None, "error": "Not connected — run: composio link instagram"}
+        return {"success": False, "url": None, "error": err}
+    try:
+        data = json.loads(result.stdout.strip().splitlines()[-1])
+        return {"success": data.get("success", False), "url": data.get("url"), "error": data.get("error")}
+    except Exception as exc:
+        return {"success": False, "url": None, "error": f"Could not parse composio output: {exc}\n{result.stdout}"}
 
 
 def _linkedin_reel(session_dir: Path, caption: str, config: dict) -> dict:
@@ -95,7 +131,9 @@ def detect_content_type(session_dir: Path) -> str:
 def extract_caption(session_dir: Path, content_type: str) -> str:
     caption_path = session_dir / "caption.md"
     if not caption_path.exists():
-        raise PublishError(f"caption file missing: {caption_path}")
+        caption_path = session_dir / "caption.txt"
+    if not caption_path.exists():
+        raise PublishError(f"caption file missing: {session_dir / 'caption.md'}")
     text = caption_path.read_text()
 
     if content_type == "reel":
@@ -138,9 +176,8 @@ def load_config(config_path: Path) -> dict:
 
 def _composio_call(slug: str, payload: dict) -> dict:
     _check_composio()
-    import json
     result = subprocess.run(
-        ["composio", "execute", slug, "-d", json.dumps(payload)],
+        [COMPOSIO_BIN, "execute", slug, "-d", json.dumps(payload)],
         capture_output=True,
         text=True,
     )
@@ -150,15 +187,13 @@ def _composio_call(slug: str, payload: dict) -> dict:
             platform_guess = slug.split("_")[0].lower()
             return {"success": False, "url": None, "error": f"Not connected — run: composio link {platform_guess}"}
         return {"success": False, "url": None, "error": err}
-    # Try to extract a URL from stdout
     url_match = re.search(r"https?://\S+", result.stdout)
     return {"success": True, "url": url_match.group(0) if url_match else None, "error": None}
 
 
 def _check_composio() -> None:
-    result = subprocess.run(["which", "composio"], capture_output=True)
-    if result.returncode != 0:
-        raise PublishError("composio not found — install with: npm install -g @composio/cli")
+    if not Path(COMPOSIO_BIN).exists():
+        raise PublishError(f"composio not found at {COMPOSIO_BIN} — install with: npm install -g @composio/cli")
 
 
 # ---------------------------------------------------------------------------
@@ -181,10 +216,9 @@ def _send_email(session_dir: Path, platforms: list[str], results: dict, config: 
     subject = f"Published: {session_dir.name} → {', '.join(platforms)}"
     body = f"Session: {session_dir}\n\n{platform_summary}"
 
-    import json
     try:
         result = subprocess.run(
-            ["composio", "execute", "GMAIL_SEND_EMAIL", "-d",
+            [COMPOSIO_BIN, "execute", "GMAIL_SEND_EMAIL", "-d",
              json.dumps({"to": recipient, "subject": subject, "body": body})],
             capture_output=True,
             text=True,

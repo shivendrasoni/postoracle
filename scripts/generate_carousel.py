@@ -47,7 +47,8 @@ FONT_SIZE_HEADLINE_SPLIT = 56
 FONT_SIZE_BODY_SPLIT = 32
 
 # Layout
-PAD_X = 90               # horizontal margin
+SQUARE_SAFE_PAD = 80     # inset border so content survives Instagram profile-grid crop
+PAD_X = 90               # horizontal margin (relative to inner canvas)
 PAD_Y = 120              # top margin before headline
 PAD_BOTTOM = 80          # bottom margin
 ACCENT_LEFT_W = 8        # left accent bar width
@@ -459,7 +460,10 @@ def render_slide(slide: dict, out_path: Path, dimensions: dict, brand: dict,
                  slide_index: int = None, slide_total: int = None) -> Path:
     width = dimensions.get("width", DEFAULT_CANVAS_WIDTH)
     height = dimensions.get("height", DEFAULT_CANVAS_WIDTH)
-    canvas_size = (width, height)
+    # Render content at inner size so the output has a safe-zone border on all sides
+    inner_w = width - 2 * SQUARE_SAFE_PAD
+    inner_h = height - 2 * SQUARE_SAFE_PAD
+    canvas_size = (inner_w, inner_h)
 
     layout = slide.get("layout", "text-only")
     image_prompt = slide.get("image_prompt")
@@ -487,6 +491,12 @@ def render_slide(slide: dict, out_path: Path, dimensions: dict, brand: dict,
             img = _render_text_only(slide, canvas_size, brand, slide_index, slide_total)
         else:
             raise
+
+    # Compose inner content onto full-size canvas with brand-color border
+    primary_rgb = _hex_to_rgb(brand.get("primary", FALLBACK_PALETTE["primary"]))
+    full_canvas = Image.new("RGB", (width, height), primary_rgb)
+    full_canvas.paste(img, (SQUARE_SAFE_PAD, SQUARE_SAFE_PAD))
+    img = full_canvas
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     img.save(str(out_path), format="PNG")
