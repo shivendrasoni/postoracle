@@ -34,3 +34,18 @@ def test_session_dir_is_inside_output_reels(tmp_path):
 def test_idempotent_on_existing_dir(tmp_path):
     create_session("topic", tmp_path)
     create_session("topic", tmp_path)  # should not raise
+
+
+def test_custom_output_dir_is_used(tmp_path):
+    from scripts.create_session import create_session
+    session_dir = create_session("topic", tmp_path, output_dir="vault/outputs/reels")
+    assert "vault" in str(session_dir)
+    assert "outputs" in str(session_dir)
+    assert "reels" in str(session_dir)
+
+
+def test_default_output_dir_unchanged(tmp_path):
+    from scripts.create_session import create_session
+    session_dir = create_session("topic", tmp_path)
+    assert "output" in str(session_dir)
+    assert "reels" in str(session_dir)
