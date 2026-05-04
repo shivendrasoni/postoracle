@@ -19,7 +19,7 @@ Two new commands:
 ### `/make-carousel`
 
 ```
-/make-carousel <point|url|github-repo> [--platform instagram|linkedin] [--slides 5|6]
+/make-carousel <point|url|github-repo> [--platform instagram|linkedin] [--slides 5|6] [--auto|--preview|--manual]
 ```
 
 | Argument | Default | Notes |
@@ -27,6 +27,33 @@ Two new commands:
 | `<input>` | required | Plain text point, HTTP URL, or GitHub repo URL |
 | `--platform` | `instagram` | `instagram` → 1080×1080; `linkedin` → 1080×1350 |
 | `--slides` | `5` | 5 = hook + 3 value + CTA; 6 adds one extra value slide |
+| mode flag | `--preview` | Controls how much Claude deliberates vs executes autonomously (see Agent Modes) |
+
+---
+
+## Agent Modes
+
+The mode flag controls the deliberation/autonomy tradeoff. `--preview` is the default because it prevents wasted image-generation credits on a plan the user would have changed immediately.
+
+| Mode | Flag | Default | Behaviour |
+|---|---|---|---|
+| Preview | `--preview` (or no flag) | Yes | Claude researches and writes a full `plan.json`, then **presents the plan and waits for approval** before rendering any images. User can approve, request changes, or redirect. Claude iterates on the plan until approved. |
+| Auto | `--auto` | No | Claude researches, plans, and renders in one uninterrupted pass. Claude may still pause to ask **one question** if the input is genuinely ambiguous (e.g. a URL with multiple possible angles) — but never asks about things it can reasonably decide itself. |
+| Manual | `--manual` | No | Claude generates and presents the **full plan upfront** (so the user has context across all slides), then steps through slide-by-slide: shows the plan for slide N → user approves or edits → renders slide N → moves to N+1. Maximum control. |
+
+### Deliberation rules (all modes)
+
+Claude must always:
+- **Justify layout choices** — briefly explain why a slide got `image-split` vs `text-only`
+- **Flag ambiguity before acting** — if the input supports two meaningfully different angles, surface them rather than picking silently (even in `--auto` mode)
+- **Reason about the arc** — the hook, value progression, and CTA should form a coherent narrative. Claude should explain the narrative arc when presenting a plan.
+
+Claude must never:
+- Ask questions it can answer through research or reasonable judgment
+- Render images before the plan gate is passed (in `--preview` and `--manual` modes)
+- Produce more than one clarifying question per pause point
+
+---
 
 ### `/carousel-brand`
 
@@ -58,7 +85,11 @@ Uses existing `scripts/create_session.py`. Output: `output/carousels/YYYY-MM-DD-
 - Write `$SESSION_DIR/research.md`
 
 ### Stage 2 — Plan Slides
-Claude reads `research.md` and writes `$SESSION_DIR/plan.json` — a slide-by-slide content plan.
+Claude reads `research.md`, deliberates on the narrative arc, and writes `$SESSION_DIR/plan.json`.
+
+When presenting the plan, Claude always explains:
+- The narrative arc (how hook → value slides → CTA form a coherent story)
+- Layout choices for any slide that isn't `text-only` (brief justification)
 
 **Slide structure rules:**
 - Slide 1 is always `hook` type with `image-bg-text` layout
@@ -94,11 +125,29 @@ Claude reads `research.md` and writes `$SESSION_DIR/plan.json` — a slide-by-sl
 }
 ```
 
+### Stage 2.5 — Plan Gate (mode-dependent)
+
+| Mode | Behaviour at this gate |
+|---|---|
+| `--preview` | Present full plan to user. Wait for approval. Iterate on `plan.json` until approved. Only then proceed to render. |
+| `--auto` | Skip gate. Proceed directly to render. (Exception: pause here if input was genuinely ambiguous and no clarifying question was asked yet.) |
+| `--manual` | Present full plan to user. After approval of the overall arc, step through slide-by-slide: show slide N plan → approve → render N → next. |
+
 ### Stage 3 — Render
+
+**`--preview` / `--auto`:** render all slides in one pass:
 ```bash
 python3 scripts/generate_carousel.py "$SESSION_DIR/plan.json" \
   --out-dir "$SESSION_DIR" \
   --brand "$(pwd)/CAROUSEL-BRAND.json"
+```
+
+**`--manual`:** render one slide at a time, prompting between each:
+```bash
+python3 scripts/generate_carousel.py "$SESSION_DIR/plan.json" \
+  --out-dir "$SESSION_DIR" \
+  --brand "$(pwd)/CAROUSEL-BRAND.json" \
+  --slide N
 ```
 
 Produces `1.png`, `2.png`, … and `caption.txt` in `$SESSION_DIR`.
@@ -185,8 +234,9 @@ output/carousels/YYYY-MM-DD-<slug>/
 
 ### CLI signature
 ```
-generate_carousel.py <plan_json> --out-dir <dir> [--brand <path>]
+generate_carousel.py <plan_json> --out-dir <dir> [--brand <path>] [--slide N]
 ```
+`--slide N` renders only slide N (used by `--manual` mode). Omit to render all slides.
 
 ---
 
