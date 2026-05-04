@@ -142,9 +142,11 @@ def load_brand(path: Optional[str]) -> dict:
     try:
         with brand_path.open() as f:
             data = json.load(f)
-        # Merge with fallback so missing keys don't break rendering
+        # Merge with fallback so missing keys don't break rendering.
+        # Support both nested format {"colors": {...}, ...} and flat format {color_key: hex, ...}.
         result = dict(FALLBACK_PALETTE)
-        result.update(data)
+        colors = data.get("colors", data)  # supports both nested and flat formats
+        result.update(colors)
         return result
     except Exception as e:
         print(f"[WARNING] Failed to load brand file '{path}': {e}", file=sys.stderr)

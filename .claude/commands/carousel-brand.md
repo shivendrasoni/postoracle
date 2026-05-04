@@ -53,7 +53,7 @@ Read back `CAROUSEL-BRAND.json` and show the extracted colors in a table (role �
 | background | #...    |
 | text       | #...    |
 
-Ask: "These colors were extracted — would you like to accept or override any?"
+Ask: "Would you like to accept these colors, or override them? If overriding, provide all 5 hex codes (primary, secondary, accent, background, text) as space-separated values."
 
 **If user wants to override:** Ask for specific hex values and re-run:
 ```bash
@@ -64,7 +64,7 @@ python3 scripts/carousel_brand.py --hex "<updated hex values>" --out "$(pwd)/CAR
 
 ## 4. Handle colorthief Failure
 
-If the script exits with an error (colorthief unavailable or image unreadable), report the error and ask:
+After running the image extraction command, check the exit code. If it exits non-zero, capture and display the full error message to the user, then ask:
 
 > "Color extraction failed. Please provide your 5 brand hex codes manually (primary, secondary, accent, background, text) — space or comma separated."
 

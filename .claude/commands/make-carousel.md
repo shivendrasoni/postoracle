@@ -13,15 +13,18 @@ Orchestrate the carousel creation pipeline below. Work sequentially. Stop and re
 Parse `$ARGUMENTS`:
 - `<input>` — everything before any `--` flags (required); can be plain text, HTTP URL, or GitHub repo URL
 - `--platform` — default `instagram` (→ 1080×1080); `linkedin` → 1080×1350
-- `--slides` — default `5`; `6` adds one extra value slide
-- mode flag — `--preview` (default), `--auto`, or `--manual`
+- `--slides` — default `5`; must be `5` or `6`. If any other value is provided, stop with: `[ERROR] --slides must be 5 or 6`
+- mode flag — `--preview` (default), `--auto`, or `--manual`. If multiple mode flags are present, use the most restrictive: `--manual` > `--preview` > `--auto`
 
 Load environment from `.env` in the project root:
 ```bash
 set -a && source "$(pwd)/.env" && set +a
 ```
 
-Confirm `OPENAI_API_KEY` is set. If missing, stop and tell the user exactly which key is absent.
+Verify `OPENAI_API_KEY` is set:
+```bash
+[ -z "$OPENAI_API_KEY" ] && echo "[ERROR] OPENAI_API_KEY is not set in .env — aborting." >&2 && exit 1
+```
 
 ## 1. Create Session Folder
 
@@ -76,9 +79,13 @@ When planning, always explain:
 - For `--slides 5`: hook + 3 value + CTA
 - For `--slides 6`: hook + 4 value + CTA
 
-**Platform dimensions:**
-- `instagram`: 1080×1080
-- `linkedin`: 1080×1350
+**Platform dimensions (set from `--platform` flag):**
+- `instagram`: set `plan.json`'s `dimensions` to `{ "width": 1080, "height": 1080 }`
+- `linkedin`: set `plan.json`'s `dimensions` to `{ "width": 1080, "height": 1350 }`
+
+**Slide count (set from `--slides` flag):**
+- For `--slides 5`: produce exactly 5 slides — hook + 3 value + CTA
+- For `--slides 6`: produce exactly 6 slides — hook + 4 value + CTA
 
 **plan.json schema:**
 ```json
@@ -143,7 +150,20 @@ else
 fi
 ```
 
-After all slides are rendered in `--manual` mode, write `$SESSION_DIR/caption.txt` from `plan.json`'s `post_caption` and `slide_captions` fields.
+After all slides are rendered in `--manual` mode, write `$SESSION_DIR/caption.txt` from `plan.json`'s `post_caption` and `slide_captions` fields using this exact format:
+
+```
+[POST CAPTION]
+<post_caption from plan.json>
+
+---
+[SLIDE COPY]
+1: <slide 1 headline + subtext>
+2: <slide 2 headline + body>
+...
+```
+
+The separator between headline and body/subtext within a slide entry is `" | "` (space-pipe-space).
 
 Log: `✓ Stage 3 complete`
 
