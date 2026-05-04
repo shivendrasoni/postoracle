@@ -14,6 +14,7 @@ Parse `$ARGUMENTS`:
 - `url-or-topic` — everything before any `--` flags (required)
 - `--duration N` — default `45` (seconds)
 - `--style punchy|deep-dive` — default `punchy`
+- `--auto-publish instagram|linkedin|all` — optional; if present, publish after pipeline completes. Store in `$AUTO_PUBLISH`.
 
 Load environment from `.env` in the project root:
 ```bash
@@ -225,6 +226,20 @@ cat >> "$LOG_FILE" << EOF
 EOF
 ```
 
+## 6.7. Stage 6 — Publish (conditional)
+
+Runs only if `--auto-publish` was passed in `$ARGUMENTS`.
+
+```bash
+if [ -n "$AUTO_PUBLISH" ]; then
+  python3 scripts/publish.py \
+    --session-dir "$SESSION_DIR" \
+    --platform "$AUTO_PUBLISH"
+fi
+```
+
+If the publish step ran, append a `Published:` line to the done report.
+
 ## 7. Done
 
 Report to user:
@@ -233,4 +248,5 @@ Report to user:
 Session: $SESSION_DIR
 Final video: $SESSION_DIR/final.mp4
 Caption: $SESSION_DIR/caption.md
+[if --auto-publish was set] Published: $AUTO_PUBLISH
 ```
