@@ -310,3 +310,37 @@ def test_render_all_exits_on_too_few_slides(tmp_path):
         render_all(plan_file, out_dir, api_key="test")
 
     assert exc_info.value.code == 1
+
+
+# ---------------------------------------------------------------------------
+# load_brand — vault brand.md support
+# ---------------------------------------------------------------------------
+
+def test_load_brand_reads_vault_md_frontmatter(tmp_path):
+    from scripts.generate_carousel import load_brand
+    brand_md = tmp_path / "brand.md"
+    brand_md.write_text(
+        "---\nmodule: brand\ncolors:\n  primary: \"#1A1A2E\"\n  secondary: \"#16213E\"\n  accent: \"#E94560\"\n  background: \"#0F3460\"\n  text: \"#FFFFFF\"\nfont: Inter\n---\n\nBody.",
+        encoding="utf-8",
+    )
+    result = load_brand(str(brand_md))
+    assert result["primary"] == "#1A1A2E"
+    assert result["secondary"] == "#16213E"
+    assert result["accent"] == "#E94560"
+    assert result["background"] == "#0F3460"
+    assert result["text"] == "#FFFFFF"
+    assert result.get("font") == "Inter"
+
+
+def test_load_brand_md_falls_back_to_fallback_palette_on_missing_file(tmp_path):
+    from scripts.generate_carousel import load_brand, FALLBACK_PALETTE
+    result = load_brand(str(tmp_path / "nonexistent.md"))
+    assert result == dict(FALLBACK_PALETTE)
+
+
+def test_load_brand_md_falls_back_on_malformed_file(tmp_path):
+    from scripts.generate_carousel import load_brand, FALLBACK_PALETTE
+    bad = tmp_path / "brand.md"
+    bad.write_text("not yaml at all ::::", encoding="utf-8")
+    result = load_brand(str(bad))
+    assert result == dict(FALLBACK_PALETTE)

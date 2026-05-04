@@ -179,6 +179,24 @@ def _draw_lines(draw: ImageDraw.Draw, lines: list, x: int, y: int, font,
 # Public API
 # ---------------------------------------------------------------------------
 
+def _load_brand_from_md(path: Path) -> dict:
+    """Parse vault brand.md YAML frontmatter into a flat brand dict."""
+    import yaml
+    content = path.read_text(encoding="utf-8")
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        return dict(FALLBACK_PALETTE)
+    fm = yaml.safe_load(parts[1]) or {}
+    result = dict(FALLBACK_PALETTE)
+    colors = fm.get("colors", {})
+    result.update(colors)
+    if "font" in fm:
+        result["font"] = fm["font"]
+    if "logo_path" in fm:
+        result["logo_path"] = fm["logo_path"]
+    return result
+
+
 def load_brand(path: Optional[str]) -> dict:
     if not path:
         return dict(FALLBACK_PALETTE)
@@ -186,6 +204,8 @@ def load_brand(path: Optional[str]) -> dict:
     if not brand_path.exists():
         return dict(FALLBACK_PALETTE)
     try:
+        if brand_path.suffix == ".md":
+            return _load_brand_from_md(brand_path)
         with brand_path.open() as f:
             data = json.load(f)
         result = dict(FALLBACK_PALETTE)
