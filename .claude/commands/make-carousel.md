@@ -40,8 +40,9 @@ text = text.lower()
 text = re.sub(r'[^a-z0-9]+', '-', text)
 print(text.strip('-')[:40])
 ")
-SESSION_DIR="$(pwd)/output/carousels/${TODAY}-${SLUG}"
+SESSION_DIR="$(pwd)/vault/outputs/carousels/${TODAY}-${SLUG}"
 mkdir -p "$SESSION_DIR"
+mkdir -p "$(pwd)/vault/logs"
 echo "Session folder: $SESSION_DIR"
 ```
 
@@ -62,6 +63,26 @@ echo "Session folder: $SESSION_DIR"
 - Write a brief research summary directly to `$SESSION_DIR/research.md`
 
 Log: `✓ Stage 1 complete`
+
+## 1.5. Load Brand Modules
+
+Load brand context from vault. Missing modules warn but do not block.
+
+```bash
+VAULT_DIR="$(pwd)/vault"
+VAULT_BRAND="$VAULT_DIR/brand/modules/brand.md"
+VAULT_STYLE="$VAULT_DIR/brand/modules/style.md"
+VAULT_CTA="$VAULT_DIR/brand/modules/cta.md"
+VAULT_WATERMARK="$VAULT_DIR/brand/modules/watermark.md"
+```
+
+Read each file that exists and inject its content into the slide planning context:
+- `brand.md` → colors + font for rendering
+- `style.md` → voice and tone guidance for all text (headline copy, caption voice)
+- `cta.md` → last-slide CTA text (use the `platforms.<platform>.primary` field for the --platform value, fall back to `default`)
+- `watermark.md` → stored for post-render watermark application
+
+For each missing module file, print: `[WARN] vault/brand/modules/<name>.md not found — skipping <name> context`
 
 ## 3. Stage 2 — Plan Slides
 
@@ -120,13 +141,13 @@ Present the full plan. After user approves the arc, step through slide-by-slide:
 
 **`--preview` and `--auto` modes (render all at once):**
 
-Check whether `CAROUSEL-BRAND.json` exists in the project root:
+Check whether vault brand.md exists:
 
 ```bash
-if [ -f "$(pwd)/CAROUSEL-BRAND.json" ]; then
+if [ -f "$VAULT_BRAND" ]; then
   python3 scripts/generate_carousel.py "$SESSION_DIR/plan.json" \
     --out-dir "$SESSION_DIR" \
-    --brand "$(pwd)/CAROUSEL-BRAND.json"
+    --brand "$VAULT_BRAND"
 else
   python3 scripts/generate_carousel.py "$SESSION_DIR/plan.json" \
     --out-dir "$SESSION_DIR"
@@ -138,10 +159,10 @@ fi
 For each slide N, after user approves that slide:
 
 ```bash
-if [ -f "$(pwd)/CAROUSEL-BRAND.json" ]; then
+if [ -f "$VAULT_BRAND" ]; then
   python3 scripts/generate_carousel.py "$SESSION_DIR/plan.json" \
     --out-dir "$SESSION_DIR" \
-    --brand "$(pwd)/CAROUSEL-BRAND.json" \
+    --brand "$VAULT_BRAND" \
     --slide N
 else
   python3 scripts/generate_carousel.py "$SESSION_DIR/plan.json" \
@@ -166,6 +187,34 @@ After all slides are rendered in `--manual` mode, write `$SESSION_DIR/caption.tx
 The separator between headline and body/subtext within a slide entry is `" | "` (space-pipe-space).
 
 Log: `✓ Stage 3 complete`
+
+## 5.5. Log Pipeline Run
+
+```bash
+LOG_FILE="$(pwd)/vault/logs/pipeline-log.md"
+TIMESTAMP=$(date "+%Y-%m-%d %H:%M")
+BRAND_VERSION=$(python3 -c "
+import yaml, sys
+from pathlib import Path
+p = Path('vault/brand/modules/brand.md')
+if p.exists():
+    parts = p.read_text().split('---', 2)
+    fm = yaml.safe_load(parts[1]) if len(parts) >= 2 else {}
+    print(f\"loaded (brand-voice v{fm.get('last_updated', 'unknown')})\")
+else:
+    print('not loaded')
+" 2>/dev/null || echo "not loaded")
+
+cat >> "$LOG_FILE" << EOF
+
+## $TIMESTAMP — make-carousel
+- topic: $INPUT
+- slides: $SLIDE_COUNT
+- platform: $PLATFORM
+- brand: $BRAND_VERSION
+- output: $SESSION_DIR
+EOF
+```
 
 ## 6. Done
 
