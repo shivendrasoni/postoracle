@@ -159,6 +159,7 @@ def test_render_slide_image_bg_text_calls_api_and_produces_png(mock_openai_cls, 
     call_kwargs = mock_client.images.generate.call_args[1]
     assert call_kwargs["model"] == "gpt-image-2"
     assert call_kwargs["response_format"] == "b64_json"
+    assert call_kwargs["size"] == "1024x1024"
     img = Image.open(out_path)
     assert img.size == (1080, 1080)
 
@@ -188,6 +189,8 @@ def test_render_slide_image_split_calls_api_and_produces_png(mock_openai_cls, tm
     assert result == out_path
     assert out_path.exists()
     mock_client.images.generate.assert_called_once()
+    call_kwargs = mock_client.images.generate.call_args[1]
+    assert call_kwargs["size"] == "1024x1024"
     img = Image.open(out_path)
     assert img.size == (1080, 1080)
 
@@ -244,6 +247,9 @@ def test_write_caption_produces_correct_file(tmp_path):
     # Each slide index should appear
     for slide in plan["slides"]:
         assert f"{slide['index']}:" in content
+    # Headline and body text must appear in slide copy (not silently dropped)
+    assert "Headline 2" in content
+    assert "Body 2" in content
 
 
 # ---------------------------------------------------------------------------

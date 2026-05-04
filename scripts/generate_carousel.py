@@ -139,7 +139,11 @@ def load_brand(path: Optional[str]) -> dict:
 
 def _fetch_image(prompt: str, size: str, api_key: Optional[str] = None) -> bytes:
     """Call gpt-image-2 and return raw PNG bytes."""
-    client = openai.OpenAI(api_key=api_key or os.environ["OPENAI_API_KEY"])
+    resolved_key = api_key or os.environ.get("OPENAI_API_KEY")
+    if not resolved_key:
+        print("[ERROR] OPENAI_API_KEY is not set and no api_key was provided", file=sys.stderr)
+        sys.exit(1)
+    client = openai.OpenAI(api_key=resolved_key)
     response = client.images.generate(
         model="gpt-image-2",
         prompt=prompt,
@@ -150,12 +154,12 @@ def _fetch_image(prompt: str, size: str, api_key: Optional[str] = None) -> bytes
     return base64.b64decode(response.data[0].b64_json)
 
 
-def _render_text_only(slide: dict, canvas: Image.Image, brand: dict) -> Image.Image:
+def _render_text_only(slide: dict, dimensions: tuple, brand: dict) -> Image.Image:
     """
-    Render a text-only layout onto `canvas`.
-    Returns the modified canvas image.
+    Render a text-only layout for the given dimensions.
+    Returns a new Image with text rendered onto a solid background.
     """
-    width, height = canvas.size
+    width, height = dimensions
     bg_color = _hex_to_rgb(brand["background"])
     accent_color = _hex_to_rgb(brand["accent"])
     text_color = _hex_to_rgb(brand["text"])
@@ -169,7 +173,7 @@ def _render_text_only(slide: dict, canvas: Image.Image, brand: dict) -> Image.Im
 
     padding = 80
     headline = slide.get("headline", "")
-    body = slide.get("body", slide.get("subtext", ""))
+    body = slide.get("body") or slide.get("subtext", "")
 
     headline_font = _load_font(64)
     body_font = _load_font_regular(36)
@@ -206,7 +210,7 @@ def _render_image_bg_text(slide: dict, canvas_size: tuple, brand: dict,
     text_color = _hex_to_rgb(brand["text"])
 
     headline = slide.get("headline", "")
-    subtext = slide.get("subtext", slide.get("body", ""))
+    subtext = slide.get("subtext") or slide.get("body", "")
 
     headline_font = _load_font(72)
     subtext_font = _load_font_regular(40)
@@ -255,7 +259,7 @@ def _render_image_split(slide: dict, canvas_size: tuple, brand: dict,
 
     draw = ImageDraw.Draw(canvas)
     headline = slide.get("headline", "")
-    body = slide.get("body", slide.get("subtext", ""))
+    body = slide.get("body") or slide.get("subtext", "")
 
     headline_font = _load_font(56)
     body_font = _load_font_regular(32)
@@ -321,16 +325,14 @@ def render_slide(slide: dict, out_path: Path, dimensions: dict, brand: dict,
 
     try:
         if layout == "text-only" or not image_prompt:
-            canvas = Image.new("RGB", canvas_size)
-            img = _render_text_only(slide, canvas, brand)
+            img = _render_text_only(slide, canvas_size, brand)
         elif layout == "image-bg-text":
             img = _render_image_bg_text(slide, canvas_size, brand, api_size, api_key)
         elif layout == "image-split":
             img = _render_image_split(slide, canvas_size, brand, api_key)
         else:
             # Unknown layout — fall back to text-only
-            canvas = Image.new("RGB", canvas_size)
-            img = _render_text_only(slide, canvas, brand)
+            img = _render_text_only(slide, canvas_size, brand)
     except Exception as exc:
         if layout in ("image-bg-text", "image-split"):
             print(
@@ -338,8 +340,7 @@ def render_slide(slide: dict, out_path: Path, dimensions: dict, brand: dict,
                 "falling back to text-only",
                 file=sys.stderr,
             )
-            canvas = Image.new("RGB", canvas_size)
-            img = _render_text_only(slide, canvas, brand)
+            img = _render_text_only(slide, canvas_size, brand)
         else:
             raise
 
@@ -362,7 +363,7 @@ def write_caption(plan: dict, out_dir: Path) -> Path:
     for slide in slides:
         idx = slide.get("index", "?")
         headline = slide.get("headline", "")
-        subtext = slide.get("subtext", slide.get("body", ""))
+        subtext = slide.get("subtext") or slide.get("body", "")
         parts = [p for p in [headline, subtext] if p]
         copy = " | ".join(parts) if parts else ""
         lines.append(f"{idx}: {copy}")
