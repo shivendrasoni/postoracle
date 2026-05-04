@@ -17,9 +17,9 @@ Generate a portrait short-form video from a URL or topic (research → script �
 - `--duration` — Target video length in seconds; default `45`
 - `--style` — `punchy` (Style A, fast-paced explainer) or `deep-dive` (Style B, longer-form); default `punchy`
 
-**Prerequisites:** Run `/heygen-avatar` first — `AVATAR-USER.md` must exist at the project root.
+**Prerequisites:** Run `/heygen-avatar` first (`AVATAR-USER.md` must exist). Run `/brand-voice` for on-brand voice and CTA injection.
 
-**Output:** `output/reels/YYYY-MM-DD-slug/final.mp4`
+**Output:** `vault/outputs/reels/YYYY-MM-DD-slug/final.mp4`
 
 **Example:**
 ```
@@ -44,7 +44,9 @@ Generate a 5–6 slide carousel (images + caption) ready to post on Instagram or
 - `--preview` — (default) Present plan and wait for approval before rendering
 - `--manual` — Step through slide-by-slide approval before rendering each slide
 
-**Output:** `output/carousels/YYYY-MM-DD-slug/` (slides `1.png`…`N.png`, `caption.txt`)
+**Prerequisites:** Run `/brand-voice` first for on-brand colors, fonts, and caption voice.
+
+**Output:** `vault/outputs/carousels/YYYY-MM-DD-slug/` (slides `1.png`…`N.png`, `caption.md`)
 
 **Example:**
 ```
@@ -53,26 +55,43 @@ Generate a 5–6 slide carousel (images + caption) ready to post on Instagram or
 
 ---
 
-## /carousel-brand
-One-time brand setup — saves brand colors to `CAROUSEL-BRAND.json` for use in `/make-carousel`.
+## /brand-voice
+Build and maintain your creator brand identity — a modular deep-dive interview that produces structured profiles consumed by `/make-reel` and `/make-carousel`. Profiles are saved to `vault/brand/` (Obsidian-ready).
 
 **Usage:**
 ```
-/carousel-brand
+/brand-voice
+/brand-voice --module <name>
+/brand-voice --list
 ```
 
-**Arguments:** None — the command interactively prompts for brand colors.
+**Arguments:**
+- *(none)* — runs the full 7-module interview (first-time setup)
+- `--module <name>` — re-run a single module; names: `niche` `style` `competitors` `goals` `cta` `watermark` `brand`
+- `--list` — show status of all modules (complete / not started / stale)
 
-**Input options (prompted):**
-- Five hex codes (primary, secondary, accent, background, text) — space or comma separated
-- A file path or URL to a brand image (colors extracted automatically via colorthief)
+**Modules:**
+| Module | What it captures |
+|--------|-----------------|
+| `niche` | Your space, subniches, target audience |
+| `style` | Tone, pace, vocabulary — accepts platform export files |
+| `competitors` | Who you watch, who inspires you, what to avoid |
+| `goals` | Per-post success metric (likes, DMs, clicks, purchases) |
+| `cta` | Call-to-action text per platform and goal |
+| `watermark` | Elements (handle, logo, URL) + 3×3 position picker |
+| `brand` | Colors (5 roles), font, logo path |
 
-**Output:** `CAROUSEL-BRAND.json` at the project root (auto-picked up by `/make-carousel`)
+**File import (style module):** Drop Instagram JSON, LinkedIn CSV, or Twitter/X archive into `vault/imports/` — Claude extracts writing patterns automatically.
 
-**Example:**
+**Output:** `vault/brand/modules/<module>.md` (one file per module) + compiled `vault/brand/brand-voice.md`
+
+**Prerequisites:** None — run this before `/make-reel` or `/make-carousel` to get on-brand output.
+
+**Examples:**
 ```
-/carousel-brand
-# then when prompted: #1A1A2E #16213E #0F3460 #E94560 #FFFFFF
+/brand-voice
+/brand-voice --module cta
+/brand-voice --list
 ```
 
 ---
