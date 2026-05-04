@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, Write, WebFetch, WebSearch
 
 # /make-carousel Pipeline
 
-Orchestrate the carousel creation pipeline below. Work sequentially. Stop and report clearly if any stage fails. Never skip a stage.
+Orchestrate the carousel creation pipeline below. Work sequentially. Stop and report clearly if any stage fails. Never skip a stage unless it is explicitly marked conditional.
 
 ## 0. Parse Arguments & Load Environment
 
@@ -15,6 +15,7 @@ Parse `$ARGUMENTS`:
 - `--platform` — default `instagram` (→ 1080×1080); `linkedin` → 1080×1350
 - `--slides` — default `5`; must be `5` or `6`. If any other value is provided, stop with: `[ERROR] --slides must be 5 or 6`
 - mode flag — `--preview` (default), `--auto`, or `--manual`. If multiple mode flags are present, use the most restrictive: `--manual` > `--preview` > `--auto`
+- `--auto-publish instagram|linkedin|all` — optional; if present, publish after pipeline completes. Parse the value that follows `--auto-publish` as `$AUTO_PUBLISH`.
 
 Load environment from `.env` in the project root:
 ```bash
@@ -216,6 +217,20 @@ cat >> "$LOG_FILE" << EOF
 EOF
 ```
 
+## 5.7. Stage 6 — Publish (conditional)
+
+Runs only if `--auto-publish` was present in `$ARGUMENTS`. Parse the value that follows `--auto-publish` as `$AUTO_PUBLISH`.
+
+If `$AUTO_PUBLISH` is set, run:
+
+```bash
+python3 scripts/publish.py \
+  --session-dir "$SESSION_DIR" \
+  --platform "$AUTO_PUBLISH"
+```
+
+If the publish step ran, append a `Published:` line to the done report.
+
 ## 6. Done
 
 Report to user:
@@ -224,6 +239,7 @@ Report to user:
 Folder: $SESSION_DIR
 Slides: $SESSION_DIR/1.png … N.png
 Caption: $SESSION_DIR/caption.md
+[if --auto-publish was set] Published: $AUTO_PUBLISH
 ```
 
 ## Deliberation Rules (all modes)
