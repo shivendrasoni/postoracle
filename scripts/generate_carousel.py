@@ -22,42 +22,48 @@ from PIL import Image, ImageDraw, ImageFont
 # ---------------------------------------------------------------------------
 
 FALLBACK_PALETTE = {
-    "primary": "#1A1A2E",
-    "secondary": "#16213E",
+    "primary": "#0A0A18",
+    "secondary": "#141432",
     "accent": "#E94560",
     "background": "#0F3460",
     "text": "#FFFFFF",
 }
 
-# gpt-image-2 size per platform
 PLATFORM_IMAGE_SIZE = {
     "instagram": "1024x1024",
     "linkedin": "1024x1536",
 }
-
 DEFAULT_IMAGE_SIZE = "1024x1024"
-
 MIN_SLIDES = 3
+DEFAULT_CANVAS_WIDTH = 1080
 
-# Font sizes
-FONT_SIZE_HEADLINE_BG = 64
-FONT_SIZE_SUBTEXT_BG = 36
+# Typography
+FONT_SIZE_HEADLINE = 78
+FONT_SIZE_BODY = 36
+FONT_SIZE_SLIDE_NUM = 26
+FONT_SIZE_HEADLINE_BG = 72
+FONT_SIZE_SUBTEXT_BG = 38
 FONT_SIZE_HEADLINE_SPLIT = 56
 FONT_SIZE_BODY_SPLIT = 32
-FONT_SIZE_HEADLINE_TEXT = 72
-FONT_SIZE_BODY_TEXT = 40
 
-# Padding / spacing
-PADDING_DEFAULT = 80
-PADDING_SPLIT = 40
-ACCENT_BAR_HEIGHT = 8
-OVERLAY_ALPHA = 153  # 60% opacity
-LINE_SPACING_SM = 8
-LINE_SPACING_MD = 24
-LINE_SPACING_LG = 32
+# Layout
+PAD_X = 90               # horizontal margin
+PAD_Y = 120              # top margin before headline
+PAD_BOTTOM = 80          # bottom margin
+ACCENT_LEFT_W = 8        # left accent bar width
+ACCENT_TOP_H = 12        # top accent bar height
+DIVIDER_W = 80           # headline/body divider width
+DIVIDER_H = 4            # headline/body divider height
+OVERLAY_ALPHA = 150      # base dark overlay alpha for image-bg slides
 
-# Canvas defaults
-DEFAULT_CANVAS_WIDTH = 1080
+PADDING_SPLIT = 40       # padding inside split layout right panel
+
+# Spacing
+GAP_HL_LINE = 10         # extra gap between wrapped headline lines
+GAP_BD_LINE = 14         # extra gap between wrapped body lines
+GAP_PARA = 24            # gap between body paragraphs
+GAP_HL_TO_DIV = 30       # headline bottom → divider top
+GAP_DIV_TO_BD = 30       # divider bottom → body top
 
 
 # ---------------------------------------------------------------------------
@@ -65,27 +71,24 @@ DEFAULT_CANVAS_WIDTH = 1080
 # ---------------------------------------------------------------------------
 
 def _hex_to_rgb(hex_color: str) -> tuple:
-    """Convert '#RRGGBB' to (R, G, B)."""
     h = hex_color.lstrip("#")
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
 
 
 def _load_font(size: int, bold: bool = True) -> Union[ImageFont.FreeTypeFont, ImageFont.ImageFont]:
-    """Try common system fonts; fall back to PIL default. Pass bold=False for regular weight."""
-    if bold:
-        candidates = [
-            "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-            "/System/Library/Fonts/Helvetica.ttc",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-        ]
-    else:
-        candidates = [
-            "/System/Library/Fonts/Supplemental/Arial.ttf",
-            "/System/Library/Fonts/Helvetica.ttc",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-        ]
+    """Try common system fonts; fall back to PIL default."""
+    bold_candidates = [
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    ]
+    regular_candidates = [
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    ]
+    candidates = bold_candidates if bold else regular_candidates
     for path in candidates:
         if Path(path).exists():
             try:
@@ -95,36 +98,80 @@ def _load_font(size: int, bold: bool = True) -> Union[ImageFont.FreeTypeFont, Im
     return ImageFont.load_default()
 
 
-def _draw_centered_text(draw: ImageDraw.Draw, text: str, y: int,
-                         font: Union[ImageFont.FreeTypeFont, ImageFont.ImageFont],
-                         fill: tuple, canvas_width: int,
-                         padding: int = PADDING_DEFAULT) -> int:
-    """
-    Draw text centered horizontally within padding.
-    Wraps long lines. Returns the y coordinate after the text block.
-    """
-    max_width = canvas_width - 2 * padding
-    words = text.split()
-    lines = []
-    current = []
-    for word in words:
-        test_line = " ".join(current + [word])
-        bbox = draw.textbbox((0, 0), test_line, font=font)
-        if bbox[2] - bbox[0] <= max_width:
-            current.append(word)
-        else:
-            if current:
-                lines.append(" ".join(current))
-            current = [word]
-    if current:
-        lines.append(" ".join(current))
+def _fill_gradient(canvas: Image.Image, top_rgb: tuple, bottom_rgb: tuple) -> None:
+    """Fill canvas in-place with a vertical linear gradient."""
+    draw = ImageDraw.Draw(canvas)
+    w, h = canvas.size
+    for y in range(h):
+        t = y / max(h - 1, 1)
+        r = round(top_rgb[0] + t * (bottom_rgb[0] - top_rgb[0]))
+        g = round(top_rgb[1] + t * (bottom_rgb[1] - top_rgb[1]))
+        b = round(top_rgb[2] + t * (bottom_rgb[2] - top_rgb[2]))
+        draw.line([(0, y), (w, y)], fill=(r, g, b))
 
+
+def _wrap_text(draw: ImageDraw.Draw, text: str, font, max_width: int) -> list:
+    """
+    Word-wrap text, respecting hard newlines.
+    Returns a list of strings; '' marks a paragraph gap.
+    """
+    result = []
+    paragraphs = text.split('\n')
+    for i, para in enumerate(paragraphs):
+        stripped = para.rstrip()
+        if not stripped:
+            result.append('')
+            continue
+        words = stripped.split()
+        current: list = []
+        for word in words:
+            test = " ".join(current + [word])
+            bbox = draw.textbbox((0, 0), test, font=font)
+            if bbox[2] - bbox[0] <= max_width:
+                current.append(word)
+            else:
+                if current:
+                    result.append(" ".join(current))
+                current = [word]
+        if current:
+            result.append(" ".join(current))
+        if i < len(paragraphs) - 1:
+            result.append('')  # paragraph separator between hard newlines
+    # Trim trailing blanks
+    while result and result[-1] == '':
+        result.pop()
+    return result
+
+
+def _lines_height(draw: ImageDraw.Draw, lines: list, font, line_gap: int, para_gap: int) -> int:
+    """Calculate total pixel height for a list of wrapped lines ('' = paragraph break)."""
+    total = 0
     for line in lines:
+        if line == '':
+            total += para_gap
+        else:
+            bbox = draw.textbbox((0, 0), line, font=font)
+            total += (bbox[3] - bbox[1]) + line_gap
+    return total
+
+
+def _draw_lines(draw: ImageDraw.Draw, lines: list, x: int, y: int, font,
+                fill: tuple, line_gap: int, para_gap: int,
+                align: str = 'left', canvas_width: int = None) -> int:
+    """Draw pre-wrapped lines. Returns final y after last line."""
+    for line in lines:
+        if line == '':
+            y += para_gap
+            continue
         bbox = draw.textbbox((0, 0), line, font=font)
-        line_w = bbox[2] - bbox[0]
-        x = (canvas_width - line_w) // 2
-        draw.text((x, y), line, font=font, fill=fill)
-        y += (bbox[3] - bbox[1]) + LINE_SPACING_SM
+        lh = bbox[3] - bbox[1]
+        lw = bbox[2] - bbox[0]
+        if align == 'center' and canvas_width:
+            draw_x = (canvas_width - lw) // 2
+        else:
+            draw_x = x
+        draw.text((draw_x, y), line, font=font, fill=fill)
+        y += lh + line_gap
     return y
 
 
@@ -133,7 +180,6 @@ def _draw_centered_text(draw: ImageDraw.Draw, text: str, y: int,
 # ---------------------------------------------------------------------------
 
 def load_brand(path: Optional[str]) -> dict:
-    """Load brand JSON from path, or return fallback palette."""
     if not path:
         return dict(FALLBACK_PALETTE)
     brand_path = Path(path)
@@ -142,10 +188,8 @@ def load_brand(path: Optional[str]) -> dict:
     try:
         with brand_path.open() as f:
             data = json.load(f)
-        # Merge with fallback so missing keys don't break rendering.
-        # Support both nested format {"colors": {...}, ...} and flat format {color_key: hex, ...}.
         result = dict(FALLBACK_PALETTE)
-        colors = data.get("colors", data)  # supports both nested and flat formats
+        colors = data.get("colors", data)
         result.update(colors)
         return result
     except Exception as e:
@@ -154,7 +198,6 @@ def load_brand(path: Optional[str]) -> dict:
 
 
 def _fetch_image(prompt: str, size: str, api_key: Optional[str] = None) -> bytes:
-    """Call gpt-image-2 and return raw PNG bytes."""
     resolved_key = api_key or os.environ.get("OPENAI_API_KEY")
     if not resolved_key:
         raise RuntimeError("OPENAI_API_KEY is not set and no api_key was provided")
@@ -164,50 +207,87 @@ def _fetch_image(prompt: str, size: str, api_key: Optional[str] = None) -> bytes
         prompt=prompt,
         size=size,
         n=1,
-        response_format="b64_json",
     )
     return base64.b64decode(response.data[0].b64_json)
 
 
-def _render_text_only(slide: dict, dimensions: tuple, brand: dict) -> Image.Image:
+def _render_text_only(slide: dict, dimensions: tuple, brand: dict,
+                      slide_index: int = None, slide_total: int = None) -> Image.Image:
     """
-    Render a text-only layout for the given dimensions.
-    Returns a new Image with text rendered onto a solid background.
+    Modern editorial layout:
+    - Gradient background (primary → secondary)
+    - Left + top accent bars
+    - Left-aligned headline → accent divider → left-aligned body
+    - Slide counter bottom-right
     """
     width, height = dimensions
-    bg_color = _hex_to_rgb(brand["background"])
-    accent_color = _hex_to_rgb(brand["accent"])
+    primary = _hex_to_rgb(brand.get("primary", FALLBACK_PALETTE["primary"]))
+    secondary = _hex_to_rgb(brand.get("secondary", FALLBACK_PALETTE["secondary"]))
+    accent = _hex_to_rgb(brand.get("accent", FALLBACK_PALETTE["accent"]))
     text_color = _hex_to_rgb(brand["text"])
+    body_color = (200, 200, 220)  # slightly muted for hierarchy
 
-    # Fill background
-    canvas = Image.new("RGB", (width, height), bg_color)
+    canvas = Image.new("RGB", (width, height))
+    _fill_gradient(canvas, primary, secondary)
     draw = ImageDraw.Draw(canvas)
 
-    # Accent bar at top
-    draw.rectangle([0, 0, width, ACCENT_BAR_HEIGHT], fill=accent_color)
+    # Top accent bar
+    draw.rectangle([0, 0, width, ACCENT_TOP_H], fill=accent)
+    # Left accent bar
+    draw.rectangle([0, 0, ACCENT_LEFT_W, height], fill=accent)
+
+    # Content area starts here
+    text_x = ACCENT_LEFT_W + PAD_X
+    max_w = width - text_x - PAD_X
 
     headline = slide.get("headline", "")
     body = slide.get("body") or slide.get("subtext", "")
 
-    headline_font = _load_font(FONT_SIZE_HEADLINE_BG)
-    body_font = _load_font(FONT_SIZE_SUBTEXT_BG, bold=False)
+    hl_font = _load_font(FONT_SIZE_HEADLINE, bold=True)
+    bd_font = _load_font(FONT_SIZE_BODY, bold=False)
+    num_font = _load_font(FONT_SIZE_SLIDE_NUM, bold=False)
 
-    y = ACCENT_BAR_HEIGHT + PADDING_DEFAULT
+    y = PAD_Y + ACCENT_TOP_H
+
+    # Headline
     if headline:
-        y = _draw_centered_text(draw, headline, y, headline_font, text_color, width, PADDING_DEFAULT)
-        y += LINE_SPACING_LG  # spacing between headline and body
+        hl_lines = _wrap_text(draw, headline, hl_font, max_w)
+        y = _draw_lines(draw, hl_lines, text_x, y, hl_font,
+                        text_color, GAP_HL_LINE, GAP_PARA)
 
+    # Accent divider
+    y += GAP_HL_TO_DIV
+    draw.rectangle([text_x, y, text_x + DIVIDER_W, y + DIVIDER_H], fill=accent)
+    y += DIVIDER_H + GAP_DIV_TO_BD
+
+    # Body
     if body:
-        _draw_centered_text(draw, body, y, body_font, text_color, width, PADDING_DEFAULT)
+        bd_lines = _wrap_text(draw, body, bd_font, max_w)
+        _draw_lines(draw, bd_lines, text_x, y, bd_font,
+                    body_color, GAP_BD_LINE, GAP_PARA)
+
+    # Slide counter: "02 / 05"
+    if slide_index is not None and slide_total is not None:
+        num_text = f"{slide_index:02d}  /  {slide_total:02d}"
+        nbbox = draw.textbbox((0, 0), num_text, font=num_font)
+        nw = nbbox[2] - nbbox[0]
+        nh = nbbox[3] - nbbox[1]
+        draw.text(
+            (width - PAD_X - nw, height - PAD_BOTTOM - nh),
+            num_text, font=num_font, fill=accent,
+        )
 
     return canvas
 
 
 def _render_image_bg_text(slide: dict, canvas_size: tuple, brand: dict,
-                           api_size: str, api_key: Optional[str] = None) -> Image.Image:
+                           api_size: str, api_key: Optional[str] = None,
+                           slide_index: int = None, slide_total: int = None) -> Image.Image:
     """
-    Render image-bg-text layout: fetch image, apply dark overlay, draw text.
-    Returns composed Image.
+    Cinematic image-bg layout:
+    - Full-bleed AI image
+    - Gradient overlay (transparent at top → dark at bottom)
+    - Headline + subtext centered in bottom 40%
     """
     width, height = canvas_size
     image_prompt = slide.get("image_prompt", "")
@@ -216,110 +296,147 @@ def _render_image_bg_text(slide: dict, canvas_size: tuple, brand: dict,
     bg_img = Image.open(BytesIO(raw_bytes)).convert("RGBA")
     bg_img = bg_img.resize((width, height), Image.LANCZOS)
 
-    # Semi-transparent dark overlay
-    overlay = Image.new("RGBA", (width, height), (0, 0, 0, OVERLAY_ALPHA))
-    composed = Image.alpha_composite(bg_img, overlay).convert("RGB")
+    # Base uniform darken
+    base_overlay = Image.new("RGBA", (width, height), (0, 0, 0, OVERLAY_ALPHA))
+    # Bottom-weighted gradient overlay (0 at top → 210 at bottom)
+    grad_overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    grad_draw = ImageDraw.Draw(grad_overlay)
+    fade_start = height // 3
+    for y in range(height):
+        t = max(0.0, (y - fade_start) / (height - fade_start))
+        a = int(min(210, t * 210))
+        grad_draw.line([(0, y), (width, y)], fill=(0, 0, 0, a))
 
+    composed = Image.alpha_composite(bg_img, base_overlay)
+    composed = Image.alpha_composite(composed, grad_overlay).convert("RGB")
     draw = ImageDraw.Draw(composed)
+
     text_color = _hex_to_rgb(brand["text"])
+    subtext_color = (220, 220, 235)
+    accent = _hex_to_rgb(brand.get("accent", FALLBACK_PALETTE["accent"]))
 
     headline = slide.get("headline", "")
     subtext = slide.get("subtext") or slide.get("body", "")
 
-    headline_font = _load_font(FONT_SIZE_HEADLINE_TEXT)
-    subtext_font = _load_font(FONT_SIZE_BODY_TEXT, bold=False)
+    hl_font = _load_font(FONT_SIZE_HEADLINE_BG, bold=True)
+    st_font = _load_font(FONT_SIZE_SUBTEXT_BG, bold=False)
+    num_font = _load_font(FONT_SIZE_SLIDE_NUM, bold=False)
 
-    total_text_height = 0
-    if headline:
-        bbox = draw.textbbox((0, 0), headline, font=headline_font)
-        total_text_height += (bbox[3] - bbox[1]) + LINE_SPACING_LG
-    if subtext:
-        bbox = draw.textbbox((0, 0), subtext, font=subtext_font)
-        total_text_height += (bbox[3] - bbox[1])
+    max_w = width - 2 * PAD_X
 
-    y = max(PADDING_DEFAULT, (height - total_text_height) // 2)
+    # Measure block height for bottom-positioning
+    hl_lines = _wrap_text(draw, headline, hl_font, max_w) if headline else []
+    st_lines = _wrap_text(draw, subtext, st_font, max_w) if subtext else []
 
-    if headline:
-        y = _draw_centered_text(draw, headline, y, headline_font, text_color, width, PADDING_DEFAULT)
-        y += LINE_SPACING_LG
+    hl_h = _lines_height(draw, hl_lines, hl_font, GAP_HL_LINE, GAP_PARA)
+    st_h = _lines_height(draw, st_lines, st_font, GAP_BD_LINE, GAP_PARA) if st_lines else 0
+    divider_block = DIVIDER_H + GAP_HL_TO_DIV + GAP_DIV_TO_BD if (hl_lines and st_lines) else 0
+    total_h = hl_h + divider_block + st_h
 
-    if subtext:
-        _draw_centered_text(draw, subtext, y, subtext_font, text_color, width, PADDING_DEFAULT)
+    # Position text in bottom 38% of slide
+    bottom_zone_start = int(height * 0.62)
+    y = bottom_zone_start + max(0, (height - PAD_BOTTOM - bottom_zone_start - total_h) // 2)
+
+    if hl_lines:
+        y = _draw_lines(draw, hl_lines, PAD_X, y, hl_font,
+                        text_color, GAP_HL_LINE, GAP_PARA,
+                        align='center', canvas_width=width)
+
+    if hl_lines and st_lines:
+        y += GAP_HL_TO_DIV
+        draw.rectangle(
+            [(width - DIVIDER_W) // 2, y, (width + DIVIDER_W) // 2, y + DIVIDER_H],
+            fill=accent,
+        )
+        y += DIVIDER_H + GAP_DIV_TO_BD
+
+    if st_lines:
+        _draw_lines(draw, st_lines, PAD_X, y, st_font,
+                    subtext_color, GAP_BD_LINE, GAP_PARA,
+                    align='center', canvas_width=width)
+
+    # Slide counter
+    if slide_index is not None and slide_total is not None:
+        num_text = f"{slide_index:02d}  /  {slide_total:02d}"
+        nbbox = draw.textbbox((0, 0), num_text, font=num_font)
+        nw = nbbox[2] - nbbox[0]
+        nh = nbbox[3] - nbbox[1]
+        draw.text(
+            (width - PAD_X - nw, height - PAD_BOTTOM - nh),
+            num_text, font=num_font, fill=accent,
+        )
 
     return composed
 
 
 def _render_image_split(slide: dict, canvas_size: tuple, brand: dict,
-                         api_key: Optional[str] = None) -> Image.Image:
+                         api_key: Optional[str] = None,
+                         slide_index: int = None, slide_total: int = None) -> Image.Image:
     """
-    Render image-split layout: image on left half, text on right half.
-    Returns composed Image.
+    Image-split layout: AI image on left half, styled text on right.
     """
     width, height = canvas_size
     half_w = width // 2
 
+    primary = _hex_to_rgb(brand.get("primary", FALLBACK_PALETTE["primary"]))
+    secondary = _hex_to_rgb(brand.get("secondary", FALLBACK_PALETTE["secondary"]))
+    accent = _hex_to_rgb(brand.get("accent", FALLBACK_PALETTE["accent"]))
+    text_color = _hex_to_rgb(brand["text"])
+    body_color = (200, 200, 220)
+
     image_prompt = slide.get("image_prompt", "")
     raw_bytes = _fetch_image(image_prompt, DEFAULT_IMAGE_SIZE, api_key)
     src_img = Image.open(BytesIO(raw_bytes)).convert("RGB")
-    # Crop/scale to fill left half
     left_img = src_img.resize((half_w, height), Image.LANCZOS)
 
-    bg_color = _hex_to_rgb(brand["background"])
-    text_color = _hex_to_rgb(brand["text"])
-
-    canvas = Image.new("RGB", (width, height), bg_color)
+    canvas = Image.new("RGB", (width, height))
+    _fill_gradient(canvas, primary, secondary)
     canvas.paste(left_img, (0, 0))
 
     draw = ImageDraw.Draw(canvas)
+
+    # Vertical separator
+    draw.rectangle([half_w, 0, half_w + ACCENT_LEFT_W, height], fill=accent)
+
     headline = slide.get("headline", "")
     body = slide.get("body") or slide.get("subtext", "")
 
-    headline_font = _load_font(FONT_SIZE_HEADLINE_SPLIT)
-    body_font = _load_font(FONT_SIZE_BODY_SPLIT, bold=False)
+    hl_font = _load_font(FONT_SIZE_HEADLINE_SPLIT, bold=True)
+    bd_font = _load_font(FONT_SIZE_BODY_SPLIT, bold=False)
+    num_font = _load_font(FONT_SIZE_SLIDE_NUM, bold=False)
 
-    # Build lines within right half
-    max_text_w = half_w - 2 * PADDING_SPLIT
+    right_x = half_w + ACCENT_LEFT_W + PADDING_SPLIT
+    max_w = width - right_x - PADDING_SPLIT
+    y = height // 5
 
-    def _draw_right_text(text: str, y: int,
-                          font: Union[ImageFont.FreeTypeFont, ImageFont.ImageFont]) -> int:
-        words = text.split()
-        lines = []
-        current = []
-        for word in words:
-            test_line = " ".join(current + [word])
-            bbox = draw.textbbox((0, 0), test_line, font=font)
-            if bbox[2] - bbox[0] <= max_text_w:
-                current.append(word)
-            else:
-                if current:
-                    lines.append(" ".join(current))
-                current = [word]
-        if current:
-            lines.append(" ".join(current))
-
-        for line in lines:
-            bbox = draw.textbbox((0, 0), line, font=font)
-            x = half_w + PADDING_SPLIT
-            draw.text((x, y), line, font=font, fill=text_color)
-            y += (bbox[3] - bbox[1]) + LINE_SPACING_SM
-        return y
-
-    y = height // 4
     if headline:
-        y = _draw_right_text(headline, y, headline_font)
-        y += LINE_SPACING_MD
+        hl_lines = _wrap_text(draw, headline, hl_font, max_w)
+        y = _draw_lines(draw, hl_lines, right_x, y, hl_font, text_color, GAP_HL_LINE, GAP_PARA)
+        y += GAP_HL_TO_DIV
+        draw.rectangle([right_x, y, right_x + DIVIDER_W, y + DIVIDER_H], fill=accent)
+        y += DIVIDER_H + GAP_DIV_TO_BD
+
     if body:
-        _draw_right_text(body, y, body_font)
+        bd_lines = _wrap_text(draw, body, bd_font, max_w)
+        _draw_lines(draw, bd_lines, right_x, y, bd_font, body_color, GAP_BD_LINE, GAP_PARA)
+
+    # Slide counter
+    if slide_index is not None and slide_total is not None:
+        num_text = f"{slide_index:02d}  /  {slide_total:02d}"
+        nbbox = draw.textbbox((0, 0), num_text, font=num_font)
+        nw = nbbox[2] - nbbox[0]
+        nh = nbbox[3] - nbbox[1]
+        draw.text(
+            (width - PADDING_SPLIT - nw, height - PAD_BOTTOM - nh),
+            num_text, font=num_font, fill=accent,
+        )
 
     return canvas
 
 
 def render_slide(slide: dict, out_path: Path, dimensions: dict, brand: dict,
-                 api_key: Optional[str] = None) -> Path:
-    """
-    Render a single slide to `out_path` as PNG.
-    Returns out_path.
-    """
+                 api_key: Optional[str] = None,
+                 slide_index: int = None, slide_total: int = None) -> Path:
     width = dimensions.get("width", DEFAULT_CANVAS_WIDTH)
     height = dimensions.get("height", DEFAULT_CANVAS_WIDTH)
     canvas_size = (width, height)
@@ -327,23 +444,19 @@ def render_slide(slide: dict, out_path: Path, dimensions: dict, brand: dict,
     layout = slide.get("layout", "text-only")
     image_prompt = slide.get("image_prompt")
 
-    # Determine platform for API size
-    # We'll rely on the canvas aspect ratio: if height > width, use linkedin size
-    if height > width:
-        api_size = PLATFORM_IMAGE_SIZE["linkedin"]
-    else:
-        api_size = DEFAULT_IMAGE_SIZE
+    api_size = PLATFORM_IMAGE_SIZE["linkedin"] if height > width else DEFAULT_IMAGE_SIZE
 
     try:
         if layout == "text-only" or not image_prompt:
-            img = _render_text_only(slide, canvas_size, brand)
+            img = _render_text_only(slide, canvas_size, brand, slide_index, slide_total)
         elif layout == "image-bg-text":
-            img = _render_image_bg_text(slide, canvas_size, brand, api_size, api_key)
+            img = _render_image_bg_text(slide, canvas_size, brand, api_size, api_key,
+                                         slide_index, slide_total)
         elif layout == "image-split":
-            img = _render_image_split(slide, canvas_size, brand, api_key)
+            img = _render_image_split(slide, canvas_size, brand, api_key,
+                                       slide_index, slide_total)
         else:
-            # Unknown layout — fall back to text-only
-            img = _render_text_only(slide, canvas_size, brand)
+            img = _render_text_only(slide, canvas_size, brand, slide_index, slide_total)
     except Exception as exc:
         if layout in ("image-bg-text", "image-split"):
             print(
@@ -351,7 +464,7 @@ def render_slide(slide: dict, out_path: Path, dimensions: dict, brand: dict,
                 "falling back to text-only",
                 file=sys.stderr,
             )
-            img = _render_text_only(slide, canvas_size, brand)
+            img = _render_text_only(slide, canvas_size, brand, slide_index, slide_total)
         else:
             raise
 
@@ -361,9 +474,6 @@ def render_slide(slide: dict, out_path: Path, dimensions: dict, brand: dict,
 
 
 def write_caption(plan: dict, out_dir: Path) -> Path:
-    """
-    Write caption.txt to out_dir. Returns path to caption.txt.
-    """
     out_dir.mkdir(parents=True, exist_ok=True)
     caption_path = out_dir / "caption.txt"
 
@@ -390,37 +500,33 @@ def render_all(
     slide_n: Optional[int] = None,
     api_key: Optional[str] = None,
 ) -> None:
-    """
-    Main orchestration: render all slides (or a single slide) and optionally write caption.txt.
-    """
     with plan_path.open() as f:
         plan = json.load(f)
 
     slides = plan.get("slides", [])
     if len(slides) < MIN_SLIDES:
-        print(
-            f"[ERROR] plan.json must have at least {MIN_SLIDES} slides; found {len(slides)}",
-            file=sys.stderr,
-        )
+        print(f"[ERROR] plan.json must have at least {MIN_SLIDES} slides; found {len(slides)}",
+              file=sys.stderr)
         sys.exit(1)
 
     brand = load_brand(brand_path)
     dimensions = plan.get("dimensions", {"width": DEFAULT_CANVAS_WIDTH, "height": DEFAULT_CANVAS_WIDTH})
+    total = len(slides)
 
     if slide_n is not None:
-        # Render only the requested slide (1-indexed)
         target = next((s for s in slides if s.get("index") == slide_n), None)
         if target is None:
             print(f"[ERROR] Slide {slide_n} not found in plan.json", file=sys.stderr)
             sys.exit(1)
         out_path = out_dir / f"{slide_n}.png"
-        render_slide(target, out_path, dimensions, brand, api_key)
+        render_slide(target, out_path, dimensions, brand, api_key,
+                     slide_index=slide_n, slide_total=total)
     else:
-        # Render all slides
         for slide in slides:
             idx = slide.get("index", slides.index(slide) + 1)
             out_path = out_dir / f"{idx}.png"
-            render_slide(slide, out_path, dimensions, brand, api_key)
+            render_slide(slide, out_path, dimensions, brand, api_key,
+                         slide_index=idx, slide_total=total)
         write_caption(plan, out_dir)
 
 
