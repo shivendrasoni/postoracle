@@ -2,5 +2,6 @@ requests>=2.33.0
 openai>=1.0.0
 Pillow>=10.0.0
 colorthief>=0.2.1
+pyyaml>=6.0
 pytest>=8.0.0
 pytest-mock>=3.14.0
