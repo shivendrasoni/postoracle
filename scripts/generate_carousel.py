@@ -12,7 +12,7 @@ import os
 import sys
 from io import BytesIO
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import openai
 from PIL import Image, ImageDraw, ImageFont
@@ -39,6 +39,26 @@ DEFAULT_IMAGE_SIZE = "1024x1024"
 
 MIN_SLIDES = 3
 
+# Font sizes
+FONT_SIZE_HEADLINE_BG = 64
+FONT_SIZE_SUBTEXT_BG = 36
+FONT_SIZE_HEADLINE_SPLIT = 56
+FONT_SIZE_BODY_SPLIT = 32
+FONT_SIZE_HEADLINE_TEXT = 72
+FONT_SIZE_BODY_TEXT = 40
+
+# Padding / spacing
+PADDING_DEFAULT = 80
+PADDING_SPLIT = 40
+ACCENT_BAR_HEIGHT = 8
+OVERLAY_ALPHA = 153  # 60% opacity
+LINE_SPACING_SM = 8
+LINE_SPACING_MD = 24
+LINE_SPACING_LG = 32
+
+# Canvas defaults
+DEFAULT_CANVAS_WIDTH = 1080
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -50,14 +70,22 @@ def _hex_to_rgb(hex_color: str) -> tuple:
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
 
 
-def _load_font(size: int) -> ImageFont.FreeTypeFont:
-    """Try common system bold fonts; fall back to PIL default."""
-    candidates = [
-        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-        "/System/Library/Fonts/Helvetica.ttc",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-    ]
+def _load_font(size: int, bold: bool = True) -> Union[ImageFont.FreeTypeFont, ImageFont.ImageFont]:
+    """Try common system fonts; fall back to PIL default. Pass bold=False for regular weight."""
+    if bold:
+        candidates = [
+            "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        ]
+    else:
+        candidates = [
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        ]
     for path in candidates:
         if Path(path).exists():
             try:
@@ -67,25 +95,10 @@ def _load_font(size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.load_default()
 
 
-def _load_font_regular(size: int) -> ImageFont.FreeTypeFont:
-    """Try common system regular fonts; fall back to PIL default."""
-    candidates = [
-        "/System/Library/Fonts/Supplemental/Arial.ttf",
-        "/System/Library/Fonts/Helvetica.ttc",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-    ]
-    for path in candidates:
-        if Path(path).exists():
-            try:
-                return ImageFont.truetype(path, size)
-            except Exception:
-                continue
-    return ImageFont.load_default()
-
-
-def _draw_centered_text(draw: ImageDraw.Draw, text: str, y: int, font: ImageFont.FreeTypeFont,
-                         fill: tuple, canvas_width: int, padding: int = 80) -> int:
+def _draw_centered_text(draw: ImageDraw.Draw, text: str, y: int,
+                         font: Union[ImageFont.FreeTypeFont, ImageFont.ImageFont],
+                         fill: tuple, canvas_width: int,
+                         padding: int = PADDING_DEFAULT) -> int:
     """
     Draw text centered horizontally within padding.
     Wraps long lines. Returns the y coordinate after the text block.
@@ -111,7 +124,7 @@ def _draw_centered_text(draw: ImageDraw.Draw, text: str, y: int, font: ImageFont
         line_w = bbox[2] - bbox[0]
         x = (canvas_width - line_w) // 2
         draw.text((x, y), line, font=font, fill=fill)
-        y += (bbox[3] - bbox[1]) + 8
+        y += (bbox[3] - bbox[1]) + LINE_SPACING_SM
     return y
 
 
@@ -133,7 +146,8 @@ def load_brand(path: Optional[str]) -> dict:
         result = dict(FALLBACK_PALETTE)
         result.update(data)
         return result
-    except Exception:
+    except Exception as e:
+        print(f"[WARNING] Failed to load brand file '{path}': {e}", file=sys.stderr)
         return dict(FALLBACK_PALETTE)
 
 
@@ -141,8 +155,7 @@ def _fetch_image(prompt: str, size: str, api_key: Optional[str] = None) -> bytes
     """Call gpt-image-2 and return raw PNG bytes."""
     resolved_key = api_key or os.environ.get("OPENAI_API_KEY")
     if not resolved_key:
-        print("[ERROR] OPENAI_API_KEY is not set and no api_key was provided", file=sys.stderr)
-        sys.exit(1)
+        raise RuntimeError("OPENAI_API_KEY is not set and no api_key was provided")
     client = openai.OpenAI(api_key=resolved_key)
     response = client.images.generate(
         model="gpt-image-2",
@@ -168,23 +181,22 @@ def _render_text_only(slide: dict, dimensions: tuple, brand: dict) -> Image.Imag
     canvas = Image.new("RGB", (width, height), bg_color)
     draw = ImageDraw.Draw(canvas)
 
-    # Accent bar at top (8px)
-    draw.rectangle([0, 0, width, 8], fill=accent_color)
+    # Accent bar at top
+    draw.rectangle([0, 0, width, ACCENT_BAR_HEIGHT], fill=accent_color)
 
-    padding = 80
     headline = slide.get("headline", "")
     body = slide.get("body") or slide.get("subtext", "")
 
-    headline_font = _load_font(64)
-    body_font = _load_font_regular(36)
+    headline_font = _load_font(FONT_SIZE_HEADLINE_BG)
+    body_font = _load_font(FONT_SIZE_SUBTEXT_BG, bold=False)
 
-    y = 8 + padding
+    y = ACCENT_BAR_HEIGHT + PADDING_DEFAULT
     if headline:
-        y = _draw_centered_text(draw, headline, y, headline_font, text_color, width, padding)
-        y += 32  # spacing between headline and body
+        y = _draw_centered_text(draw, headline, y, headline_font, text_color, width, PADDING_DEFAULT)
+        y += LINE_SPACING_LG  # spacing between headline and body
 
     if body:
-        _draw_centered_text(draw, body, y, body_font, text_color, width, padding)
+        _draw_centered_text(draw, body, y, body_font, text_color, width, PADDING_DEFAULT)
 
     return canvas
 
@@ -202,8 +214,8 @@ def _render_image_bg_text(slide: dict, canvas_size: tuple, brand: dict,
     bg_img = Image.open(BytesIO(raw_bytes)).convert("RGBA")
     bg_img = bg_img.resize((width, height), Image.LANCZOS)
 
-    # Semi-transparent dark overlay at 60% opacity (alpha=153)
-    overlay = Image.new("RGBA", (width, height), (0, 0, 0, 153))
+    # Semi-transparent dark overlay
+    overlay = Image.new("RGBA", (width, height), (0, 0, 0, OVERLAY_ALPHA))
     composed = Image.alpha_composite(bg_img, overlay).convert("RGB")
 
     draw = ImageDraw.Draw(composed)
@@ -212,26 +224,25 @@ def _render_image_bg_text(slide: dict, canvas_size: tuple, brand: dict,
     headline = slide.get("headline", "")
     subtext = slide.get("subtext") or slide.get("body", "")
 
-    headline_font = _load_font(72)
-    subtext_font = _load_font_regular(40)
+    headline_font = _load_font(FONT_SIZE_HEADLINE_TEXT)
+    subtext_font = _load_font(FONT_SIZE_BODY_TEXT, bold=False)
 
-    padding = 80
     total_text_height = 0
     if headline:
         bbox = draw.textbbox((0, 0), headline, font=headline_font)
-        total_text_height += (bbox[3] - bbox[1]) + 32
+        total_text_height += (bbox[3] - bbox[1]) + LINE_SPACING_LG
     if subtext:
         bbox = draw.textbbox((0, 0), subtext, font=subtext_font)
         total_text_height += (bbox[3] - bbox[1])
 
-    y = max(padding, (height - total_text_height) // 2)
+    y = max(PADDING_DEFAULT, (height - total_text_height) // 2)
 
     if headline:
-        y = _draw_centered_text(draw, headline, y, headline_font, text_color, width, padding)
-        y += 32
+        y = _draw_centered_text(draw, headline, y, headline_font, text_color, width, PADDING_DEFAULT)
+        y += LINE_SPACING_LG
 
     if subtext:
-        _draw_centered_text(draw, subtext, y, subtext_font, text_color, width, padding)
+        _draw_centered_text(draw, subtext, y, subtext_font, text_color, width, PADDING_DEFAULT)
 
     return composed
 
@@ -246,7 +257,7 @@ def _render_image_split(slide: dict, canvas_size: tuple, brand: dict,
     half_w = width // 2
 
     image_prompt = slide.get("image_prompt", "")
-    raw_bytes = _fetch_image(image_prompt, "1024x1024", api_key)
+    raw_bytes = _fetch_image(image_prompt, DEFAULT_IMAGE_SIZE, api_key)
     src_img = Image.open(BytesIO(raw_bytes)).convert("RGB")
     # Crop/scale to fill left half
     left_img = src_img.resize((half_w, height), Image.LANCZOS)
@@ -261,16 +272,14 @@ def _render_image_split(slide: dict, canvas_size: tuple, brand: dict,
     headline = slide.get("headline", "")
     body = slide.get("body") or slide.get("subtext", "")
 
-    headline_font = _load_font(56)
-    body_font = _load_font_regular(32)
-
-    right_padding = 40
-    right_canvas_width = half_w  # we'll offset x when drawing
+    headline_font = _load_font(FONT_SIZE_HEADLINE_SPLIT)
+    body_font = _load_font(FONT_SIZE_BODY_SPLIT, bold=False)
 
     # Build lines within right half
-    max_text_w = half_w - 2 * right_padding
+    max_text_w = half_w - 2 * PADDING_SPLIT
 
-    def _draw_right_text(text: str, y: int, font: ImageFont.FreeTypeFont) -> int:
+    def _draw_right_text(text: str, y: int,
+                          font: Union[ImageFont.FreeTypeFont, ImageFont.ImageFont]) -> int:
         words = text.split()
         lines = []
         current = []
@@ -288,15 +297,15 @@ def _render_image_split(slide: dict, canvas_size: tuple, brand: dict,
 
         for line in lines:
             bbox = draw.textbbox((0, 0), line, font=font)
-            x = half_w + right_padding
+            x = half_w + PADDING_SPLIT
             draw.text((x, y), line, font=font, fill=text_color)
-            y += (bbox[3] - bbox[1]) + 8
+            y += (bbox[3] - bbox[1]) + LINE_SPACING_SM
         return y
 
     y = height // 4
     if headline:
         y = _draw_right_text(headline, y, headline_font)
-        y += 24
+        y += LINE_SPACING_MD
     if body:
         _draw_right_text(body, y, body_font)
 
@@ -309,8 +318,8 @@ def render_slide(slide: dict, out_path: Path, dimensions: dict, brand: dict,
     Render a single slide to `out_path` as PNG.
     Returns out_path.
     """
-    width = dimensions.get("width", 1080)
-    height = dimensions.get("height", 1080)
+    width = dimensions.get("width", DEFAULT_CANVAS_WIDTH)
+    height = dimensions.get("height", DEFAULT_CANVAS_WIDTH)
     canvas_size = (width, height)
 
     layout = slide.get("layout", "text-only")
@@ -319,9 +328,9 @@ def render_slide(slide: dict, out_path: Path, dimensions: dict, brand: dict,
     # Determine platform for API size
     # We'll rely on the canvas aspect ratio: if height > width, use linkedin size
     if height > width:
-        api_size = "1024x1536"
+        api_size = PLATFORM_IMAGE_SIZE["linkedin"]
     else:
-        api_size = "1024x1024"
+        api_size = DEFAULT_IMAGE_SIZE
 
     try:
         if layout == "text-only" or not image_prompt:
@@ -394,7 +403,7 @@ def render_all(
         sys.exit(1)
 
     brand = load_brand(brand_path)
-    dimensions = plan.get("dimensions", {"width": 1080, "height": 1080})
+    dimensions = plan.get("dimensions", {"width": DEFAULT_CANVAS_WIDTH, "height": DEFAULT_CANVAS_WIDTH})
 
     if slide_n is not None:
         # Render only the requested slide (1-indexed)
@@ -431,13 +440,17 @@ def main() -> None:
                         help="Render only slide N (1-indexed)")
     args = parser.parse_args()
 
-    render_all(
-        plan_path=Path(args.plan_json),
-        out_dir=Path(args.out_dir),
-        brand_path=args.brand,
-        slide_n=args.slide,
-        api_key=api_key,
-    )
+    try:
+        render_all(
+            plan_path=Path(args.plan_json),
+            out_dir=Path(args.out_dir),
+            brand_path=args.brand,
+            slide_n=args.slide,
+            api_key=api_key,
+        )
+    except RuntimeError as exc:
+        print(f"[ERROR] {exc}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
