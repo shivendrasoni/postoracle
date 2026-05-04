@@ -495,7 +495,7 @@ def render_slide(slide: dict, out_path: Path, dimensions: dict, brand: dict,
 
 def write_caption(plan: dict, out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
-    caption_path = out_dir / "caption.txt"
+    caption_path = out_dir / "caption.md"
 
     post_caption = plan.get("post_caption", "")
     slides = plan.get("slides", [])
@@ -562,7 +562,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Render carousel slides from a plan.json")
     parser.add_argument("plan_json", help="Path to plan.json file")
-    parser.add_argument("--out-dir", required=True, help="Output directory for PNGs + caption.txt")
+    parser.add_argument("--out-dir", required=True, help="Output directory for PNGs + caption.md")
     parser.add_argument("--brand", default=None, help="Path to CAROUSEL-BRAND.json")
     parser.add_argument("--slide", type=int, default=None, metavar="N",
                         help="Render only slide N (1-indexed)")

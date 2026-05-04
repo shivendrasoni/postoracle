@@ -165,6 +165,45 @@ After edit completes:
 ln -sf "$SESSION_DIR/edit/final.mp4" "$SESSION_DIR/final.mp4"
 ```
 
+## 6.3. Stage 5.5 — Caption
+
+Generate the social post caption from the script and write `$SESSION_DIR/caption.md`.
+
+Read `$SESSION_DIR/script.md` to extract:
+- The hook line (first spoken beat)
+- The core value points
+- The CTA line (last beat, or `platforms.instagram.primary` from `cta.md` if loaded)
+
+Write `$SESSION_DIR/caption.md` in this exact format:
+
+```
+# Caption
+
+## Post Caption
+
+<hook line as opening — 1 punchy sentence>
+
+<3–5 value lines drawn from the script beats, each on its own line with a → or • prefix>
+
+<CTA line>
+
+<hashtags — 10–15 relevant tags>
+
+---
+
+## Script Reference
+
+<full contents of script.md>
+```
+
+Rules:
+- The post caption must be self-contained — readable without watching the video
+- Hook line must match or closely echo the script's opening hook
+- Use the CTA from `cta.md` (`platforms.instagram.primary` → fallback to `default`) if the module was loaded; otherwise derive a CTA from the script's closing beat
+- Hashtags: mix broad (#contentcreator) + niche + topic-specific tags
+
+Log: `✓ Stage 5.5 complete`
+
 ## 6.5. Log Pipeline Run
 
 ```bash
@@ -193,4 +232,5 @@ Report to user:
 ✓ /make-reel complete
 Session: $SESSION_DIR
 Final video: $SESSION_DIR/final.mp4
+Caption: $SESSION_DIR/caption.md
 ```

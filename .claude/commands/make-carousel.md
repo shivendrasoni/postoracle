@@ -171,7 +171,7 @@ else
 fi
 ```
 
-After all slides are rendered in `--manual` mode, write `$SESSION_DIR/caption.txt` from `plan.json`'s `post_caption` and `slide_captions` fields using this exact format:
+After all slides are rendered in `--manual` mode, write `$SESSION_DIR/caption.md` from `plan.json`'s `post_caption` and `slide_captions` fields using this exact format:
 
 ```
 [POST CAPTION]
@@ -223,7 +223,7 @@ Report to user:
 ✓ /make-carousel complete
 Folder: $SESSION_DIR
 Slides: $SESSION_DIR/1.png … N.png
-Caption: $SESSION_DIR/caption.txt
+Caption: $SESSION_DIR/caption.md
 ```
 
 ## Deliberation Rules (all modes)
