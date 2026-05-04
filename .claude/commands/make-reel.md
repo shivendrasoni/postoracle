@@ -30,7 +30,8 @@ If exit code is non-zero: stop and tell the user exactly which keys are missing.
 ## 1. Create Session Folder
 
 ```bash
-SESSION_DIR=$(python3 scripts/create_session.py "$TOPIC" --base-dir "$(pwd)")
+SESSION_DIR=$(python3 scripts/create_session.py "$TOPIC" --base-dir "$(pwd)" --output-dir "vault/outputs/reels")
+mkdir -p "$(pwd)/vault/logs"
 echo "Session folder: $SESSION_DIR"
 ```
 
@@ -41,6 +42,35 @@ Symlink avatar into session:
 ```bash
 ln -sf "$(pwd)/AVATAR-USER.md" "$SESSION_DIR/AVATAR-USER.md"
 ```
+
+## 1.5. Load Brand Modules
+
+Load brand context from vault. Missing modules warn but do not block.
+
+```bash
+VAULT_DIR="$(pwd)/vault"
+VAULT_STYLE="$VAULT_DIR/brand/modules/style.md"
+VAULT_CTA="$VAULT_DIR/brand/modules/cta.md"
+VAULT_NICHE="$VAULT_DIR/brand/modules/niche.md"
+VAULT_WATERMARK="$VAULT_DIR/brand/modules/watermark.md"
+```
+
+For each file that exists, read it:
+```bash
+for MODULE_PATH in "$VAULT_STYLE" "$VAULT_CTA" "$VAULT_NICHE" "$VAULT_WATERMARK"; do
+  if [ -f "$MODULE_PATH" ]; then
+    echo "Loaded: $MODULE_PATH"
+  else
+    echo "[WARN] $MODULE_PATH not found — skipping"
+  fi
+done
+```
+
+Inject the contents of each found module into the script generation context for Stage 2:
+- `style.md` → tone, vocabulary, opener patterns to apply (and anti-patterns to avoid)
+- `cta.md` → CTA line to append at the end of the script (use `platforms.instagram.primary` or `default`)
+- `niche.md` → audience persona and transformation for relevance filtering
+- `watermark.md` → stored spec for video post-processing step
 
 ## 2. Stage 1 — Research
 
@@ -61,6 +91,10 @@ Invoke the `viral-reel-generator` skill. Pass:
 - Contents of `$SESSION_DIR/research.md` as research context
 - Style: `--style punchy` → Style A (Punchy Explainer); `--style deep-dive` → Style B (Deep Dive)
 - Target duration: `--duration` value in seconds
+- Brand voice context (inject into script prompt if modules were loaded):
+  - From `style.md`: apply tone, vocabulary, opener patterns; avoid anti-patterns
+  - From `niche.md`: tailor content to audience persona and transformation
+  - From `cta.md`: append the platform CTA as the final beat of the script
 
 Save the full output (timecodes + visual cues + CTA) to `$SESSION_DIR/script.md`.
 
@@ -129,6 +163,27 @@ Invoke the `video-use` skill with this exact brief:
 After edit completes:
 ```bash
 ln -sf "$SESSION_DIR/edit/final.mp4" "$SESSION_DIR/final.mp4"
+```
+
+## 6.5. Log Pipeline Run
+
+```bash
+LOG_FILE="$(pwd)/vault/logs/pipeline-log.md"
+TIMESTAMP=$(date "+%Y-%m-%d %H:%M")
+BRAND_LOADED="none"
+[ -f "$VAULT_STYLE" ] && BRAND_LOADED="style"
+[ -f "$VAULT_CTA" ] && BRAND_LOADED="$BRAND_LOADED,cta"
+[ -f "$VAULT_NICHE" ] && BRAND_LOADED="$BRAND_LOADED,niche"
+
+cat >> "$LOG_FILE" << EOF
+
+## $TIMESTAMP — make-reel
+- topic: $TOPIC
+- duration: $DURATION
+- style: $STYLE
+- brand modules: $BRAND_LOADED
+- output: $SESSION_DIR/final.mp4
+EOF
 ```
 
 ## 7. Done
