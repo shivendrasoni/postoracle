@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-06  
 **Status:** Draft (pending user review)  
-**Scope:** `/viral-angle` command, `/viral-script` command, 3 new vault modules, library storage, pipeline integration with `/make-reel` and `/make-carousel`, `/brand-voice` extension
+**Scope:** `/viral-angle` command, `/viral-script` command, 3 new vault modules, library storage, pipeline integration with `/make-reel`, `/make-carousel`, and `/make-post`, `/brand-voice` extension
 
 ---
 
@@ -217,7 +217,7 @@ Generates format-specific content angles using the Contrast Formula. Reads vault
 ### Interface
 
 ```
-/viral-angle <topic-or-url> [--format shortform|longform|linkedin|carousel|all] [--count 5]
+/viral-angle <topic-or-url> [--format shortform|longform|linkedin|carousel|post|all] [--count 5]
 ```
 
 - `<topic-or-url>` — required; plain text topic or HTTP URL for research
@@ -279,6 +279,7 @@ For each format in the `--format` set, generate `--count` angles. Each angle con
 - `longform`: angles should support 8–15 minutes; need a mechanism to explain, not just a claim
 - `linkedin`: angles should be text-native; story arc or contrarian take; professional framing
 - `carousel`: angles should decompose into 5–6 sequential beats (hook → value → CTA); each beat = one slide
+- `post`: angles must distill to one striking visual concept + one key message; include an `image_concept` field describing the ideal image (used by `/make-post`'s GPT-image-2 generation)
 
 #### Phase 4: Score & Rank
 
@@ -614,7 +615,19 @@ Two new optional flags:
 
 **No flag:** Pipeline works exactly as today.
 
-### 8.3 Enhanced `viral-reel-generator` Skill
+### 8.3 `/make-post` — New Flags
+
+**`--from-angle <path>`**
+- Skips Stage 3 (Research). The angle's `contrast`, `one_liner`, and `image_concept` (if present) replace research output.
+- Stage 5 (Content analysis) uses the angle's contrast and talking points to decide photo approach.
+- Post angles (format: `post`) include `image_concept` — a description of the ideal visual, passed to GPT-image-2 prompt generation.
+- Non-post angles are adapted: the `one_liner` becomes the key message, and `talking_points[0]` seeds the visual concept.
+- Caption generation uses the angle's `contrast` and `hook_pattern` for a punchier opening line.
+- Example: `/make-post --from-angle vault/library/angles/2026-05-06-ai-agents-post-01.md`
+
+**No flag:** Pipeline works exactly as today (research → content analysis → generate → adapt → caption).
+
+### 8.4 Enhanced `viral-reel-generator` Skill
 
 The existing skill at `.claude/skills/viral-reel-generator/` is updated:
 
@@ -628,15 +641,16 @@ The existing skill at `.claude/skills/viral-reel-generator/` is updated:
 
 ## 9. `/brand-voice` Extension
 
-### Three New Modules
+### New Modules
 
-The brand-voice interview grows from 7 → 10 modules. New modules are added at the end of the sequence:
+The brand-voice interview grows from 7 → 11 modules. The `photo` module is defined by the `/make-post` spec (see `2026-05-06-make-post-design.md`). The 3 strategy modules are defined here:
 
-| # | Module | Key Questions |
-|---|--------|---------------|
-| 8 | `pillars` | "What are your 3–5 recurring content themes?", "What subtopics under each?", "Which pillar builds trust vs drives action?" |
-| 9 | `audience` | "Describe your ideal viewer beyond demographics", "What do they believe that's wrong?", "What's the #1 objection to your content?" |
-| 10 | `strategy` | "Which hook styles do you gravitate toward?", "What content type drives the most business results?", "Do you have a funnel — and where does content fit?" |
+| # | Module | Key Questions | Defined in |
+|---|--------|---------------|------------|
+| 8 | `photo` | Upload photo, auto-describe appearance for image generation | make-post spec |
+| 9 | `pillars` | "What are your 3–5 recurring content themes?", "What subtopics under each?", "Which pillar builds trust vs drives action?" | this spec |
+| 10 | `audience` | "Describe your ideal viewer beyond demographics", "What do they believe that's wrong?", "What's the #1 objection to your content?" | this spec |
+| 11 | `strategy` | "Which hook styles do you gravitate toward?", "What content type drives the most business results?", "Do you have a funnel — and where does content fit?" | this spec |
 
 ### Module Re-run
 
@@ -649,7 +663,7 @@ All three support `--module <name>`:
 
 ### Status Check
 
-`/brand-voice --list` includes the new modules:
+`/brand-voice --list` includes all 11 modules:
 
 ```
 niche        ✓  last updated 2026-05-05
@@ -659,6 +673,7 @@ goals        ✓  last updated 2026-05-05
 cta          ✓  last updated 2026-05-05
 watermark    ✗  not started
 brand        ✓  last updated 2026-05-05
+photo        ✗  not started
 pillars      ✗  not started
 audience     ✗  not started
 strategy     ✗  not started
@@ -666,7 +681,7 @@ strategy     ✗  not started
 
 ### Compiled Master
 
-`brand-voice.md` is updated to include 3 new sections:
+`brand-voice.md` is updated to include 4 new sections:
 
 ```
 # Brand Voice — [Creator Name]
@@ -678,6 +693,7 @@ strategy     ✗  not started
 ## CTA
 ## Watermark
 ## Brand Identity
+## Photo                    ← NEW (make-post spec)
 ## Content Pillars          ← NEW
 ## Audience Deep-Dive       ← NEW
 ## Content Strategy         ← NEW
@@ -735,7 +751,7 @@ For creators who batch-plan content:
 
 ```
 1. /viral-angle "AI agents replacing junior devs"
-   → Generates 20 angles (5 per format × 4 formats)
+   → Generates 25 angles (5 per format × 5 formats)
    → Saved to vault/library/angles/
 
 2. Review angles in Obsidian, mark favorites as status: approved
@@ -781,6 +797,18 @@ For quick-turn content:
 2. /viral-script --angle vault/library/angles/...-linkedin-03.md --mode linkedin
    → Full linkedin text post with hook, body, CTA, hashtags
    → Saved to vault/library/scripts/
+```
+
+### Workflow E: Single-Image Post from Angle
+
+```
+1. /viral-angle "AI is a superpower" --format post --count 3
+   → 3 post-optimized angles, each with an image_concept field
+
+2. /make-post --from-angle vault/library/angles/...-post-02.md
+   → Angle's contrast drives the caption hook
+   → image_concept seeds GPT-image-2 prompt
+   → Normal make-post pipeline from Stage 5 onward
 ```
 
 ---
@@ -853,9 +881,10 @@ If the creator has existing angle data in goviralbro's `data/angles.jsonl`, a on
 - `scripts/parse_script_library.py`
 
 **Modified files:**
-- `.claude/commands/brand-voice.md` — add 3 new modules to interview sequence
+- `.claude/commands/brand-voice.md` — add 3 new modules to interview sequence (pillars, audience, strategy); photo module handled by make-post spec
 - `.claude/commands/make-reel.md` — add `--from-angle` and `--from-script` flags
 - `.claude/commands/make-carousel.md` — add `--from-angle` flag
+- `.claude/commands/make-post.md` — add `--from-angle` flag
 - `.claude/skills/viral-reel-generator/SKILL.md` — update hook patterns to 7-pattern taxonomy
 - `.claude/skills/viral-reel-generator/references/hook-patterns.md` — document all 7 patterns
 - `scripts/brand_voice.py` — handle 3 new modules in read/write/compile/status
