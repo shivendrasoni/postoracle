@@ -1,7 +1,7 @@
 # Viral Content Engine — Design Spec
 
 **Date:** 2026-05-06  
-**Status:** Approved  
+**Status:** Draft (pending user review)  
 **Scope:** `/viral-angle` command, `/viral-script` command, 3 new vault modules, library storage, pipeline integration with `/make-reel` and `/make-carousel`, `/brand-voice` extension
 
 ---
@@ -235,6 +235,14 @@ Read vault modules:
 - `competitors.md` — differentiation context (if populated)
 - `strategy.md` — hook preferences for later scoring
 
+**Missing-module behavior:** If any vault module is absent, warn and continue. Scoring degrades gracefully:
+- No `pillars.md` → `pillar_relevance` defaults to 0.5 (neutral)
+- No `audience.md` → `blocker_match` defaults to 0.0 (no boost)
+- No `strategy.md` → all `hook_preference_weight` values default to 1.0 (uniform)
+- No `competitors.md` or empty arrays → competitor differentiation is skipped (no-op)
+
+This means `/viral-angle` works immediately after basic brand-voice setup (niche + style). The strategy modules make it better, but aren't required.
+
 #### Phase 2: Research
 
 **If input is a URL:**
@@ -412,7 +420,7 @@ These rules are non-negotiable. Every script is checked against them before outp
 | No meta-commentary | "Let's dive in," "In this video," "But there's a twist." |
 | No hype adjectives | "Mind-blowing," "Insane," "Game-changing" (unless technically justified) |
 | No fake scenarios | "Imagine you are walking down the street..." |
-| No throat-clearing | "Hey guys, welcome back," "So..." |
+| No throat-clearing | "Hey guys, welcome back," "So..." (new addition to existing anti-slop set) |
 
 **Required flow patterns:**
 - **The Connector:** Use "See," "Meaning," or "Therefore" to glue sentences
@@ -697,6 +705,8 @@ draft → approved → scripted → published
 Status is updated manually by the creator in Obsidian (edit the frontmatter) or automatically when a downstream command consumes the file:
 - `/viral-script --angle <path>` sets the angle's status to `scripted`
 - `/make-reel --from-script <path>` + successful publish sets script status to `published`
+
+**Note:** Commands that update status will mutate the vault file's frontmatter. Since the creator may also edit these files in Obsidian, commands always read the file fresh before updating and only touch the `status` field — never overwrite other frontmatter or the body.
 
 ### Obsidian Integration
 
