@@ -9,8 +9,8 @@ allowed-tools: Bash, Read, Write
 ## 0. Parse Arguments
 
 Parse `$ARGUMENTS`:
-- *(empty)* → full first-run interview (all 7 modules in sequence)
-- `--module <name>` → re-run a single module; valid names: `niche style competitors goals cta watermark brand`
+- *(empty)* → full first-run interview (all 10 modules in sequence)
+- `--module <name>` → re-run a single module; valid names: `niche style competitors goals cta watermark brand pillars audience strategy`
 - `--list` → show status of all modules and exit
 
 ## 1. `--list` Mode
@@ -77,12 +77,15 @@ Create the vault directory structure if it does not exist:
 mkdir -p "$(pwd)/vault/brand/modules"
 mkdir -p "$(pwd)/vault/outputs/reels"
 mkdir -p "$(pwd)/vault/outputs/carousels"
+mkdir -p "$(pwd)/vault/outputs/posts"
+mkdir -p "$(pwd)/vault/library/angles"
+mkdir -p "$(pwd)/vault/library/scripts"
 mkdir -p "$(pwd)/vault/imports"
 mkdir -p "$(pwd)/vault/assets"
 mkdir -p "$(pwd)/vault/logs"
 ```
 
-Run all 7 modules in sequence. **Do not proceed to the next module until the current one is written and confirmed.**
+Run all 10 modules in sequence. **Do not proceed to the next module until the current one is written and confirmed.**
 
 ---
 
@@ -361,9 +364,128 @@ Run: `python3 scripts/brand_voice.py --vault "$(pwd)/vault" write --module brand
 
 ---
 
+### Module 8: pillars
+
+Ask the user (one question at a time, probing based on answers):
+- "What are your 3–5 recurring content themes or pillars?"
+- For each pillar: "What subtopics fall under [pillar name]?"
+- For each pillar: "Does this pillar primarily build trust, demonstrate capability, or drive action?"
+
+After enough detail, write `vault/brand/modules/pillars.md`:
+
+~~~
+---
+module: pillars
+last_updated: <YYYY-MM-DD>
+pillars:
+  - name: "<pillar name>"
+    subtopics:
+      - "<subtopic>"
+    content_job: build_trust
+  - name: "<pillar name>"
+    subtopics:
+      - "<subtopic>"
+    content_job: demonstrate_capability
+---
+
+## Pillar Philosophy
+
+<2-3 paragraph narrative: why these pillars, how they rotate, what each content job means>
+~~~
+
+Run: `python3 scripts/brand_voice.py --vault "$(pwd)/vault" write --module pillars`
+
+---
+
+### Module 9: audience
+
+Ask the user (one question at a time, probing based on answers):
+- "Beyond demographics, describe your ideal viewer — what are they feeling, thinking, struggling with?"
+- "What do they believe that's wrong? What misconceptions hold them back?"
+- "For each belief: what content would break that belief?"
+- "Is there a secondary audience you also serve?"
+
+After enough detail, write `vault/brand/modules/audience.md`:
+
+~~~
+---
+module: audience
+last_updated: <YYYY-MM-DD>
+icp:
+  primary: "<description>"
+  secondary: "<description>"
+  psychographics:
+    - "<trait>"
+blockers:
+  - belief: "<what they wrongly believe>"
+    counter: "<content strategy to break it>"
+---
+
+## Audience Context
+
+<2-3 paragraph narrative: who they are, what transformation they want, what lies they believe, how content breaks those lies>
+~~~
+
+Run: `python3 scripts/brand_voice.py --vault "$(pwd)/vault" write --module audience`
+
+---
+
+### Module 10: strategy
+
+Ask the user (one question at a time, probing based on answers):
+- "Which hook styles do you gravitate toward?" Show the 7-pattern list:
+  1. Contradiction — "Everyone says X. Here's why that's wrong."
+  2. Specificity — "I mass-produced 847 images in 12 minutes"
+  3. Timeframe tension — "In 6 months, this won't exist anymore"
+  4. Curiosity gap — "There's a feature nobody talks about"
+  5. Vulnerable confession — "I wasted 3 months on this"
+  6. Pattern interrupt — visual/tonal disruption
+  7. POV as advice — "If I were starting today..."
+- "Rate each 0–2 (0 = never use, 1 = normal, 2 = use heavily). Or just tell me your top 3 and I'll set weights."
+- "What type of content drives the most business results for you?"
+- "Do you have a content funnel? Where does each content job fit?"
+  - build_trust → what funnel stage? (top/middle/bottom) what CTA type? (follow/lead_magnet/product)
+  - demonstrate_capability → same
+  - drive_action → same
+
+After enough detail, write `vault/brand/modules/strategy.md`:
+
+~~~
+---
+module: strategy
+last_updated: <YYYY-MM-DD>
+hook_preferences:
+  contradiction: 1.0
+  specificity: 1.0
+  timeframe_tension: 1.0
+  curiosity_gap: 1.0
+  vulnerable_confession: 1.0
+  pattern_interrupt: 1.0
+  pov_as_advice: 1.0
+content_jobs:
+  build_trust:
+    funnel_stage: top
+    cta_type: follow
+  demonstrate_capability:
+    funnel_stage: middle
+    cta_type: lead_magnet
+  drive_action:
+    funnel_stage: bottom
+    cta_type: product
+---
+
+## Strategy Notes
+
+<Narrative: which hooks the creator gravitates toward, how content jobs map to business goals>
+~~~
+
+Run: `python3 scripts/brand_voice.py --vault "$(pwd)/vault" write --module strategy`
+
+---
+
 ### Final: Compile master
 
-After all 7 modules are written:
+After all 10 modules are written:
 
 ```bash
 python3 scripts/brand_voice.py --vault "$(pwd)/vault" compile
@@ -377,5 +499,5 @@ Brand profile saved to vault/brand/brand-voice.md (Obsidian-ready)
 Module status:
 <paste output of: python3 scripts/brand_voice.py --vault vault/ status>
 
-Run /make-reel or /make-carousel to use your brand automatically.
+Run /make-reel, /make-carousel, or /viral-angle to use your brand automatically.
 ```
