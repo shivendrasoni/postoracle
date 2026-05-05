@@ -28,10 +28,27 @@ Before writing, determine the **Style** (see `references/writing-styles.md`):
 *   **Style A: The Punchy Explainer** (Fast, fast, fast. For broad appeal/trends).
 *   **Style B: The Deep Dive** (Technical, "How it works," for educational/niche topics).
 
+If research context is available, identify the **Contrast Formula** angle:
+*   **Common Belief (A):** What most people think about this topic.
+*   **Surprising Truth (B):** The reframe — what's actually true.
+*   Contrast strength: mild / moderate / strong / extreme. Aim for moderate–strong.
+
 ### Step 2: Engineer the Hook
-Consult `references/hook-patterns.md` to select a specific hook type.
+Consult `references/hook-patterns.md` to select a hook from the 7-pattern taxonomy:
+1. Contradiction  2. Specificity  3. Timeframe Tension  4. Curiosity Gap
+5. Vulnerable Confession  6. Pattern Interrupt  7. POV as Advice
+
+If `vault/brand/modules/strategy.md` exists, read its YAML frontmatter to get `hook_preferences` (a dict of pattern → weight). To load it:
+1. Read the file with the Read tool
+2. Parse the YAML frontmatter between `---` delimiters
+3. Extract `hook_preferences` — each key is a pattern name, each value is a weight (0.0–2.0, default 1.0)
+4. Favor patterns with higher weights when selecting the hook. Normalize weights to 0–1 by dividing by the max weight in the set.
+
+If `strategy.md` is missing, treat all 7 patterns as equally weighted (1.0).
+
 *   *Requirement:* The hook must be < 15 words and visually verifiable.
 *   *Requirement:* No "Hey guys" or intros. Start mid-action.
+*   *Requirement:* Apply the Contrast Formula — frame the hook as **common belief → surprising truth** when the topic supports it.
 
 ### Step 3: Write the Script (Strict Rules)
 Use the selected style to draft the script. You must adhere to the **Anti-Slop Rules**:
@@ -94,6 +111,8 @@ _Best for: Technical breakdowns, "How it works," educational content._
 ## When Users Ask for a Script
 
 Follow this process to ensure quality:
+
+    **Load Brand Context (if available):** Read `vault/brand/modules/style.md` for tone/vocabulary, `vault/brand/modules/strategy.md` for hook preference weights, and `vault/brand/modules/niche.md` for audience context. Missing modules are fine — continue without them.
 
     **Analyze the Topic:** Look for the "Mechanism" (How it works) vs. the "Result" (What it does). If the mechanism is missing, the script will fail.
 
