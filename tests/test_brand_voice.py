@@ -161,3 +161,41 @@ def test_compile_master_includes_last_updated_date(tmp_path):
     master = compile_master(tmp_path)
     text = master.read_text(encoding="utf-8")
     assert f"Last updated: {date.today().isoformat()}" in text
+
+
+# ---------------------------------------------------------------------------
+# New strategy modules
+# ---------------------------------------------------------------------------
+
+def test_modules_list_includes_strategy_modules():
+    from scripts.brand_voice import MODULES
+    assert "pillars" in MODULES
+    assert "audience" in MODULES
+    assert "strategy" in MODULES
+
+
+def test_section_names_includes_strategy_modules():
+    from scripts.brand_voice import SECTION_NAMES
+    assert "pillars" in SECTION_NAMES
+    assert "audience" in SECTION_NAMES
+    assert "strategy" in SECTION_NAMES
+
+
+def test_compile_master_includes_new_strategy_sections(tmp_path):
+    today = date.today().isoformat()
+    for mod in MODULES:
+        write_module(tmp_path, mod, f"---\nmodule: {mod}\nlast_updated: {today}\n---\n\n{mod} body.")
+    master = compile_master(tmp_path)
+    text = master.read_text(encoding="utf-8")
+    assert "## Content Pillars" in text
+    assert "## Audience Deep-Dive" in text
+    assert "## Content Strategy" in text
+
+
+def test_status_includes_new_modules(tmp_path, capsys):
+    from scripts.brand_voice import print_status
+    print_status(tmp_path)
+    output = capsys.readouterr().out
+    assert "pillars" in output
+    assert "audience" in output
+    assert "strategy" in output

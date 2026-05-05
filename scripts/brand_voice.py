@@ -16,7 +16,7 @@ from typing import Optional
 
 import yaml
 
-MODULES = ["niche", "style", "competitors", "goals", "cta", "watermark", "brand"]
+MODULES = ["niche", "style", "competitors", "goals", "cta", "watermark", "brand", "pillars", "audience", "strategy"]
 STALE_DAYS = 30
 BRAND_DIR = "brand"
 MODULES_SUBDIR = "modules"
@@ -30,6 +30,9 @@ SECTION_NAMES = {
     "cta": "CTA",
     "watermark": "Watermark",
     "brand": "Brand Identity",
+    "pillars": "Content Pillars",
+    "audience": "Audience Deep-Dive",
+    "strategy": "Content Strategy",
 }
 
 
