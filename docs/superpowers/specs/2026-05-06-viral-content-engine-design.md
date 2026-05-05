@@ -1,7 +1,7 @@
 # Viral Content Engine — Design Spec
 
 **Date:** 2026-05-06  
-**Status:** Draft (pending user review)  
+**Status:** Approved  
 **Scope:** `/viral-angle` command, `/viral-script` command, 3 new vault modules, library storage, pipeline integration with `/make-reel`, `/make-carousel`, and `/make-post`, `/brand-voice` extension
 
 ---
