@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+import argparse
 import json
 import re
+import sys
 from pathlib import Path
 
 
@@ -97,3 +99,64 @@ def compute_virality_score(
         raw += 0.5
 
     return round(min(raw / MAX_RAW * 10.0, 10.0), 1)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Content registry CLI")
+    parser.add_argument("--registry", default="vault/content-registry.json", help="Path to registry JSON")
+    sub = parser.add_subparsers(dest="command")
+
+    list_p = sub.add_parser("list")
+    list_p.add_argument("--registry", default="vault/content-registry.json", help="Path to registry JSON")
+    list_p.add_argument("--status", help="Filter by status")
+    list_p.add_argument("--type", help="Filter by content type")
+    list_p.add_argument("--platform", help="Filter by platform")
+
+    get_p = sub.add_parser("get")
+    get_p.add_argument("--registry", default="vault/content-registry.json", help="Path to registry JSON")
+    get_p.add_argument("--id", required=True, help="Entry ID")
+
+    update_p = sub.add_parser("update")
+    update_p.add_argument("--registry", default="vault/content-registry.json", help="Path to registry JSON")
+    update_p.add_argument("--id", required=True, help="Entry ID")
+    update_p.add_argument("--status", help="New status")
+    update_p.add_argument("--scheduled-at", help="Scheduled datetime")
+
+    args = parser.parse_args()
+    # --registry may be on subparser or top-level parser depending on placement
+    registry_path = getattr(args, "registry", "vault/content-registry.json")
+    reg = Registry(registry_path)
+
+    if args.command == "list":
+        filters = {}
+        if args.status:
+            filters["status"] = args.status
+        if args.type:
+            filters["type"] = args.type
+        if args.platform:
+            filters["platform"] = args.platform
+        print(json.dumps(reg.list(**filters), indent=2))
+
+    elif args.command == "get":
+        entry = reg.get(args.id)
+        if entry is None:
+            print(f"Entry '{args.id}' not found", file=sys.stderr)
+            sys.exit(1)
+        print(json.dumps(entry, indent=2))
+
+    elif args.command == "update":
+        fields = {}
+        if args.status:
+            fields["status"] = args.status
+        if args.scheduled_at:
+            fields["scheduled_at"] = args.scheduled_at
+        reg.update(args.id, fields)
+        print(json.dumps(reg.get(args.id), indent=2))
+
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

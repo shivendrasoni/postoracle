@@ -210,3 +210,65 @@ def test_score_max_signals_does_not_exceed_10():
         brand_loaded=True,
     )
     assert score <= 10.0
+
+
+import subprocess
+import sys
+
+
+def test_cli_list_outputs_json(tmp_path):
+    reg = Registry(tmp_path / "registry.json")
+    reg.add(_sample_entry(id="post-1"))
+    result = subprocess.run(
+        [sys.executable, "scripts/registry.py", "list", "--registry", str(tmp_path / "registry.json")],
+        capture_output=True, text=True,
+        cwd="/Users/shivendrasoni/personal/content_creation",
+    )
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert len(data) == 1
+
+
+def test_cli_list_with_status_filter(tmp_path):
+    reg = Registry(tmp_path / "registry.json")
+    reg.add(_sample_entry(id="post-1", status="draft"))
+    reg.add(_sample_entry(id="post-2", status="published"))
+    result = subprocess.run(
+        [sys.executable, "scripts/registry.py", "list",
+         "--registry", str(tmp_path / "registry.json"),
+         "--status", "draft"],
+        capture_output=True, text=True,
+        cwd="/Users/shivendrasoni/personal/content_creation",
+    )
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert len(data) == 1
+    assert data[0]["id"] == "post-1"
+
+
+def test_cli_get_outputs_entry(tmp_path):
+    reg = Registry(tmp_path / "registry.json")
+    reg.add(_sample_entry(id="post-1", topic="My topic"))
+    result = subprocess.run(
+        [sys.executable, "scripts/registry.py", "get",
+         "--registry", str(tmp_path / "registry.json"),
+         "--id", "post-1"],
+        capture_output=True, text=True,
+        cwd="/Users/shivendrasoni/personal/content_creation",
+    )
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert data["topic"] == "My topic"
+
+
+def test_cli_get_missing_exits_1(tmp_path):
+    reg = Registry(tmp_path / "registry.json")
+    reg.add(_sample_entry(id="post-1"))
+    result = subprocess.run(
+        [sys.executable, "scripts/registry.py", "get",
+         "--registry", str(tmp_path / "registry.json"),
+         "--id", "nonexistent"],
+        capture_output=True, text=True,
+        cwd="/Users/shivendrasoni/personal/content_creation",
+    )
+    assert result.returncode == 1
