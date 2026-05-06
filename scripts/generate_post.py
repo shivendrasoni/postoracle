@@ -152,3 +152,63 @@ def generate_master_image(
             n=1,
         )
     return base64.b64decode(response.data[0].b64_json)
+
+
+def render_post(
+    prompt: str,
+    out_dir: Path,
+    brand_path: Optional[str] = None,
+    use_reference: bool = False,
+    photo_path: Optional[str] = None,
+    platforms: Optional[list[str]] = None,
+    api_key: Optional[str] = None,
+) -> None:
+    if platforms is None:
+        platforms = ["instagram", "linkedin"]
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    brand = load_brand(brand_path)
+
+    image_bytes = generate_master_image(prompt, use_reference, photo_path, api_key)
+    master = Image.open(BytesIO(image_bytes)).convert("RGB")
+
+    master_path = out_dir / "image.png"
+    master.save(str(master_path), format="PNG")
+
+    if "instagram" in platforms:
+        adapt_instagram(master).save(str(out_dir / "image-instagram.png"), format="PNG")
+
+    if "linkedin" in platforms:
+        adapt_linkedin(master, brand).save(str(out_dir / "image-linkedin.png"), format="PNG")
+
+
+def main() -> None:
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        print("[ERROR] OPENAI_API_KEY is not set", file=sys.stderr)
+        sys.exit(1)
+
+    parser = argparse.ArgumentParser(description="Generate single-image post")
+    parser.add_argument("--prompt", required=True)
+    parser.add_argument("--out-dir", required=True, type=Path)
+    parser.add_argument("--brand", default=None)
+    parser.add_argument("--use-reference", action="store_true")
+    parser.add_argument("--photo-path", default=None)
+    parser.add_argument("--platforms", default="instagram,linkedin")
+    args = parser.parse_args()
+
+    platforms = [p.strip() for p in args.platforms.split(",")]
+
+    render_post(
+        prompt=args.prompt,
+        out_dir=args.out_dir,
+        brand_path=args.brand,
+        use_reference=args.use_reference,
+        photo_path=args.photo_path,
+        platforms=platforms,
+        api_key=api_key,
+    )
+
+
+if __name__ == "__main__":
+    main()

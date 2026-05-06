@@ -201,3 +201,75 @@ def test_generate_master_image_reference_flag_without_path_falls_back_to_generat
 
     mock_client.images.generate.assert_called_once()
     mock_client.images.edit.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# render_post orchestrator
+# ---------------------------------------------------------------------------
+
+@patch("scripts.generate_post.openai.OpenAI")
+def test_render_post_creates_master_and_platform_images(mock_openai_cls, tmp_path):
+    from scripts.generate_post import render_post
+
+    mock_client = MagicMock()
+    mock_client.images.generate.return_value = MagicMock(
+        data=[MagicMock(b64_json=FAKE_B64)]
+    )
+    mock_openai_cls.return_value = mock_client
+
+    out_dir = tmp_path / "session"
+    render_post(
+        prompt="A dramatic scene",
+        out_dir=out_dir,
+        platforms=["instagram", "linkedin"],
+        api_key="test-key",
+    )
+
+    assert (out_dir / "image.png").exists()
+    assert (out_dir / "image-instagram.png").exists()
+    assert (out_dir / "image-linkedin.png").exists()
+
+    master = Image.open(out_dir / "image.png")
+    assert master.size == (1024, 1024)
+
+    ig = Image.open(out_dir / "image-instagram.png")
+    assert ig.size == (1080, 1080)
+
+    li = Image.open(out_dir / "image-linkedin.png")
+    assert li.size == (1200, 627)
+
+
+@patch("scripts.generate_post.openai.OpenAI")
+def test_render_post_skips_unrequested_platforms(mock_openai_cls, tmp_path):
+    from scripts.generate_post import render_post
+
+    mock_client = MagicMock()
+    mock_client.images.generate.return_value = MagicMock(
+        data=[MagicMock(b64_json=FAKE_B64)]
+    )
+    mock_openai_cls.return_value = mock_client
+
+    out_dir = tmp_path / "session"
+    render_post(prompt="test", out_dir=out_dir, platforms=["instagram"], api_key="test-key")
+
+    assert (out_dir / "image.png").exists()
+    assert (out_dir / "image-instagram.png").exists()
+    assert not (out_dir / "image-linkedin.png").exists()
+
+
+@patch("scripts.generate_post.openai.OpenAI")
+def test_render_post_x_platform_produces_no_images(mock_openai_cls, tmp_path):
+    from scripts.generate_post import render_post
+
+    mock_client = MagicMock()
+    mock_client.images.generate.return_value = MagicMock(
+        data=[MagicMock(b64_json=FAKE_B64)]
+    )
+    mock_openai_cls.return_value = mock_client
+
+    out_dir = tmp_path / "session"
+    render_post(prompt="test", out_dir=out_dir, platforms=["x"], api_key="test-key")
+
+    assert (out_dir / "image.png").exists()
+    assert not (out_dir / "image-instagram.png").exists()
+    assert not (out_dir / "image-linkedin.png").exists()
