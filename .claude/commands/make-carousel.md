@@ -243,6 +243,43 @@ cat >> "$LOG_FILE" << EOF
 EOF
 ```
 
+## 5.6. Register Content
+
+```bash
+python3 -c "
+from scripts.registry import Registry, compute_virality_score
+from datetime import datetime, timezone
+import json
+
+entry = {
+    'id': '$(basename $SESSION_DIR)',
+    'type': 'carousel',
+    'topic': $(python3 -c "import json; print(json.dumps('$INPUT'))"),
+    'source_url': $(python3 -c "
+import json
+inp = '$INPUT'
+print(json.dumps(inp if inp.startswith('http') else None))
+"),
+    'platforms': ['$PLATFORM'],
+    'status': 'draft',
+    'virality_score': None,
+    'created_at': datetime.now(timezone.utc).isoformat(),
+    'scheduled_at': None,
+    'published_at': {},
+    'published_urls': {},
+    'session_dir': '$SESSION_DIR',
+    'tags': [],
+}
+
+reg = Registry()
+try:
+    reg.add(entry)
+    print('✓ Registered in content registry')
+except ValueError:
+    print('⚠ Already in registry — skipping')
+"
+```
+
 ## 5.7. Stage 6 — Publish (conditional)
 
 Runs only if `--auto-publish` was present in `$ARGUMENTS`. Parse the value that follows `--auto-publish` as `$AUTO_PUBLISH`.
