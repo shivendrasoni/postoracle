@@ -102,14 +102,46 @@ def _linkedin_carousel(session_dir: Path, caption: str, config: dict) -> dict:
     )
 
 
+def _instagram_post(session_dir: Path, caption: str, config: dict) -> dict:
+    return _composio_call(
+        slug="INSTAGRAM_CREATE_PHOTO_POST",
+        payload={
+            "image_path": str(session_dir / "image-instagram.png"),
+            "caption": caption,
+        },
+    )
+
+
+def _linkedin_post(session_dir: Path, caption: str, config: dict) -> dict:
+    return _composio_call(
+        slug="LINKEDIN_CREATE_IMAGE_POST",
+        payload={
+            "image_paths": [str(session_dir / "image-linkedin.png")],
+            "text": caption,
+        },
+    )
+
+
+def _x_post(session_dir: Path, caption: str, config: dict) -> dict:
+    return _composio_call(
+        slug="TWITTER_CREATION_OF_A_POST",
+        payload={"text": caption},
+    )
+
+
 PLATFORM_REGISTRY: dict[str, dict[str, callable]] = {
     "instagram": {
         "reel": _instagram_reel,
         "carousel": _instagram_carousel,
+        "post": _instagram_post,
     },
     "linkedin": {
         "reel": _linkedin_reel,
         "carousel": _linkedin_carousel,
+        "post": _linkedin_post,
+    },
+    "x": {
+        "post": _x_post,
     },
 }
 

@@ -189,7 +189,52 @@ def test_resolve_unknown_platform_raises():
 
 
 # ---------------------------------------------------------------------------
-# Dry-run: no Composio calls
+# Post publishing (dry-run)
+# ---------------------------------------------------------------------------
+
+def test_dry_run_post_to_instagram(tmp_path):
+    from scripts.publish import publish
+    session = _make_session(tmp_path, ["image.png", "image-instagram.png"])
+    _make_post_caption(session)
+    config_path = tmp_path / "publish-config.md"
+    config_path.write_text("---\nnotify_enabled: false\n---\n")
+
+    with patch("scripts.publish.subprocess.run") as mock_run:
+        results = publish(session, "instagram", dry_run=True, config_path=config_path)
+
+    mock_run.assert_not_called()
+    assert results["instagram"]["success"] is True
+    assert results["instagram"].get("dry_run") is True
+
+
+def test_dry_run_post_to_x(tmp_path):
+    from scripts.publish import publish
+    session = _make_session(tmp_path, ["image.png"])
+    _make_post_caption(session)
+    config_path = tmp_path / "publish-config.md"
+    config_path.write_text("---\nnotify_enabled: false\n---\n")
+
+    with patch("scripts.publish.subprocess.run") as mock_run:
+        results = publish(session, "x", dry_run=True, config_path=config_path)
+
+    mock_run.assert_not_called()
+    assert results["x"]["success"] is True
+
+
+def test_post_registry_has_all_platforms():
+    from scripts.publish import PLATFORM_REGISTRY
+    assert "post" in PLATFORM_REGISTRY["instagram"]
+    assert "post" in PLATFORM_REGISTRY["linkedin"]
+    assert "post" in PLATFORM_REGISTRY.get("x", {})
+
+
+def test_resolve_x_platform():
+    from scripts.publish import resolve_platforms
+    assert resolve_platforms("x") == ["x"]
+
+
+# ---------------------------------------------------------------------------
+# Dry-run: no Composio calls (reel)
 # ---------------------------------------------------------------------------
 
 def test_dry_run_makes_no_subprocess_calls(tmp_path):
