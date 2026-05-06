@@ -199,3 +199,49 @@ def test_status_includes_new_modules(tmp_path, capsys):
     assert "pillars" in output
     assert "audience" in output
     assert "strategy" in output
+
+
+# ---------------------------------------------------------------------------
+# Photo module
+# ---------------------------------------------------------------------------
+
+def test_photo_in_modules_list():
+    from scripts.brand_voice import MODULES
+    assert "photo" in MODULES
+
+
+def test_photo_in_section_names():
+    from scripts.brand_voice import SECTION_NAMES
+    assert "photo" in SECTION_NAMES
+    assert SECTION_NAMES["photo"] == "Photo"
+
+
+def test_write_and_read_photo_module(tmp_path):
+    content = (
+        "---\nmodule: photo\nphoto_path: vault/assets/me.png\n"
+        "description: \"Brown-skinned male, short hair, glasses\"\n"
+        "last_updated: 2026-05-06\n---\n\n## Photo Notes\n\nPrefer action shots."
+    )
+    write_module(tmp_path, "photo", content)
+    fm, body = read_module(tmp_path, "photo")
+    assert fm["module"] == "photo"
+    assert fm["photo_path"] == "vault/assets/me.png"
+    assert "action shots" in body
+
+
+def test_photo_module_status_complete(tmp_path):
+    today = date.today().isoformat()
+    content = f"---\nmodule: photo\nlast_updated: {today}\n---\n\nBody."
+    write_module(tmp_path, "photo", content)
+    status, _ = module_status(tmp_path, "photo")
+    assert status == "complete"
+
+
+def test_compile_master_includes_photo_section(tmp_path):
+    today = date.today().isoformat()
+    for mod in MODULES:
+        write_module(tmp_path, mod, f"---\nmodule: {mod}\nlast_updated: {today}\n---\n\n{mod} body.")
+    master = compile_master(tmp_path)
+    text = master.read_text(encoding="utf-8")
+    assert "## Photo" in text
+    assert "photo body." in text
