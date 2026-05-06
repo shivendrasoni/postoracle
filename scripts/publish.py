@@ -130,7 +130,19 @@ def detect_content_type(session_dir: Path) -> str:
     return found[0]
 
 
-def extract_caption(session_dir: Path, content_type: str) -> str:
+def extract_caption(session_dir: Path, content_type: str, platform: Optional[str] = None) -> str:
+    if content_type == "post":
+        caption_path = session_dir / "post.md"
+        if not caption_path.exists():
+            raise PublishError(f"post.md not found in {session_dir}")
+        text = caption_path.read_text()
+        section_map = {"instagram": "Instagram", "linkedin": "LinkedIn", "x": "X"}
+        section_name = section_map.get(platform, platform or "Instagram")
+        match = re.search(rf"## {section_name}\s*\n(.*?)(?:\n## |\Z)", text, re.DOTALL)
+        if not match:
+            raise PublishError(f"## {section_name} section not found in {caption_path}")
+        return match.group(1).strip()
+
     caption_path = session_dir / "caption.md"
     if not caption_path.exists():
         caption_path = session_dir / "caption.txt"
@@ -139,13 +151,11 @@ def extract_caption(session_dir: Path, content_type: str) -> str:
     text = caption_path.read_text()
 
     if content_type == "reel":
-        # Extract text under "## Post Caption" section, stop at the next "---" or "##"
         match = re.search(r"## Post Caption\s*\n(.*?)(?:\n---|\n##|\Z)", text, re.DOTALL)
         if not match:
             raise PublishError(f"## Post Caption section not found in {caption_path}")
         return match.group(1).strip()
 
-    # carousel: extract everything after "[POST CAPTION]" up to "---"
     match = re.search(r"\[POST CAPTION\]\s*\n(.*?)(?:\n---|\Z)", text, re.DOTALL)
     if not match:
         raise PublishError(f"[POST CAPTION] marker not found in {caption_path}")
@@ -258,13 +268,13 @@ def publish(
         raise PublishError(f"Session dir not found: {session_dir}")
 
     content_type = detect_content_type(session_dir)
-    caption = extract_caption(session_dir, content_type)
     platforms = resolve_platforms(platform)
     config = load_config(config_path)
 
     results: dict[str, dict] = {}
 
     for p in platforms:
+        caption = extract_caption(session_dir, content_type, platform=p)
         handler = PLATFORM_REGISTRY[p].get(content_type)
         if handler is None:
             results[p] = {"success": False, "url": None, "error": f"No {content_type} handler for {p}"}

@@ -107,6 +107,64 @@ def test_extract_caption_missing_file_raises(tmp_path):
         extract_caption(session, "reel")
 
 
+def _make_post_caption(session: Path) -> None:
+    (session / "post.md").write_text(
+        "## LinkedIn\n\nAI is not replacing you — it's upgrading you.\n\nHere's the truth about AI agents:\n\n#AI #Productivity\n\n"
+        "## Instagram\n\nAI won't replace you. But someone using AI will. 🔥\n\nComment AGENT and I'll DM you the guide.\n\n#AI #Tech\n\n"
+        "## X\n\nAI is your superpower, not your replacement. The devs who get this will win 2026. #AI"
+    )
+
+
+def test_extract_post_caption_instagram(tmp_path):
+    from scripts.publish import extract_caption
+    session = _make_session(tmp_path, ["image.png"])
+    _make_post_caption(session)
+    caption = extract_caption(session, "post", platform="instagram")
+    assert "Comment AGENT" in caption
+    assert "LinkedIn" not in caption
+
+
+def test_extract_post_caption_linkedin(tmp_path):
+    from scripts.publish import extract_caption
+    session = _make_session(tmp_path, ["image.png"])
+    _make_post_caption(session)
+    caption = extract_caption(session, "post", platform="linkedin")
+    assert "truth about AI agents" in caption
+    assert "Comment AGENT" not in caption
+
+
+def test_extract_post_caption_x(tmp_path):
+    from scripts.publish import extract_caption
+    session = _make_session(tmp_path, ["image.png"])
+    _make_post_caption(session)
+    caption = extract_caption(session, "post", platform="x")
+    assert "superpower" in caption
+    assert len(caption) <= 280
+
+
+def test_extract_post_caption_missing_section_raises(tmp_path):
+    from scripts.publish import extract_caption, PublishError
+    session = _make_session(tmp_path, ["image.png"])
+    (session / "post.md").write_text("## Instagram\nOnly Instagram caption here.\n")
+    with pytest.raises(PublishError, match="LinkedIn"):
+        extract_caption(session, "post", platform="linkedin")
+
+
+def test_extract_post_caption_missing_file_raises(tmp_path):
+    from scripts.publish import extract_caption, PublishError
+    session = _make_session(tmp_path, ["image.png"])
+    with pytest.raises(PublishError, match="post.md"):
+        extract_caption(session, "post", platform="instagram")
+
+
+def test_extract_reel_caption_still_works_with_platform_param(tmp_path):
+    from scripts.publish import extract_caption
+    session = _make_session(tmp_path, ["final.mp4"])
+    _make_reel_caption(session)
+    caption = extract_caption(session, "reel", platform="instagram")
+    assert "hook line" in caption
+
+
 # ---------------------------------------------------------------------------
 # Platform registry resolution
 # ---------------------------------------------------------------------------
