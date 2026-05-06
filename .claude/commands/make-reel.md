@@ -11,10 +11,16 @@ Orchestrate the content creation pipeline below. Work sequentially. Stop and rep
 ## 0. Parse Arguments & Load Environment
 
 Parse `$ARGUMENTS`:
-- `url-or-topic` — everything before any `--` flags (required)
+- `url-or-topic` — everything before any `--` flags (required UNLESS --from-angle or --from-script is set)
 - `--duration N` — default `45` (seconds)
 - `--style punchy|deep-dive` — default `punchy`
 - `--auto-publish instagram|linkedin|all` — optional; if present, publish after pipeline completes. Store in `$AUTO_PUBLISH`.
+- `--from-angle <path>` — optional; path to a vault angle file. Skips Stage 1 (Research). The angle's contrast, talking_points, and hook_pattern replace research context.
+- `--from-script <path>` — optional; path to a vault script file. Skips Stage 1 (Research) AND Stage 2 (Script). Pipeline starts at Stage 3 (HeyGen Video). Script must contain timecodes and `[Visual: ...]` cues.
+
+If `--from-angle` is set, `url-or-topic` is not required (topic comes from the angle file).
+If `--from-script` is set, `url-or-topic`, `--duration`, and `--style` are ignored.
+`--from-angle` and `--from-script` are mutually exclusive. If both are present, stop: `[ERROR] Use --from-angle OR --from-script, not both.`
 
 Load environment from `.env` in the project root:
 ```bash
@@ -43,6 +49,48 @@ Symlink avatar into session:
 ```bash
 ln -sf "$(pwd)/AVATAR-USER.md" "$SESSION_DIR/AVATAR-USER.md"
 ```
+
+## 1.3. Load Angle or Script (conditional)
+
+**If `--from-angle` is set:**
+
+```bash
+python3 -c "
+from scripts.parse_angle import read_angle
+import yaml
+fm, body = read_angle('$FROM_ANGLE_PATH')
+print(yaml.dump(fm, default_flow_style=False))
+print('---')
+print(body)
+"
+```
+
+Read the output. Extract `topic`, `contrast`, `hook_pattern`, `talking_points` from the frontmatter, and the angle body. These replace the research output in Stage 2.
+
+Set `$TOPIC` from the angle's `topic` field if not already set from arguments.
+
+**Skip to Stage 2.**
+
+**If `--from-script` is set:**
+
+```bash
+python3 -c "
+from scripts.parse_script_library import read_script
+import yaml
+fm, body = read_script('$FROM_SCRIPT_PATH')
+print(yaml.dump(fm, default_flow_style=False))
+print('---')
+print(body)
+"
+```
+
+Read the output. The body IS the script. Write it to `$SESSION_DIR/script.md`.
+
+Set `$TOPIC` from the script's `topic` field.
+
+Validate: script body must contain at least one `(M:SS)` timecode and at least one `[Visual: ...]` line. If validation fails, stop: `[ERROR] Script file missing timecodes or visual cues — cannot use with make-reel.`
+
+**Skip to Stage 3.**
 
 ## 1.5. Load Brand Modules
 
@@ -75,6 +123,8 @@ Inject the contents of each found module into the script generation context for 
 
 ## 2. Stage 1 — Research
 
+**Skip this stage if `--from-angle` or `--from-script` is set.**
+
 **If input starts with `http`:**
 - Use `WebFetch` to scrape the URL
 - Summarize key claims, hooks, stats, visual ideas into `$SESSION_DIR/research.md` (~300 words)
@@ -87,6 +137,10 @@ Inject the contents of each found module into the script generation context for 
 Write `research.md`. Log: `✓ Stage 1 complete`
 
 ## 3. Stage 2 — Script
+
+**Skip this stage if `--from-script` is set.**
+
+**If `--from-angle` is set:** Pass the angle's contrast, talking_points, and hook_pattern to the viral-reel-generator skill as research context instead of `$SESSION_DIR/research.md`.
 
 Invoke the `viral-reel-generator` skill. Pass:
 - Contents of `$SESSION_DIR/research.md` as research context
