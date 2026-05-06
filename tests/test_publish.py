@@ -291,3 +291,67 @@ def test_send_email_composio_not_found_does_not_raise(tmp_path, capsys):
     captured = capsys.readouterr()
     assert "[WARN]" in captured.err
     assert "Email notification failed" in captured.err
+
+
+def test_publish_updates_registry_on_success(tmp_path):
+    from scripts.registry import Registry
+    from scripts.publish import publish
+
+    session = _make_session(tmp_path, ["image.png", "image-instagram.png"])
+    _make_post_caption(session)
+
+    registry_path = tmp_path / "content-registry.json"
+    reg = Registry(registry_path)
+    reg.add({
+        "id": session.name,
+        "type": "post",
+        "topic": "test",
+        "source_url": None,
+        "platforms": ["instagram"],
+        "status": "draft",
+        "virality_score": None,
+        "created_at": "2026-05-06T12:00:00Z",
+        "scheduled_at": None,
+        "published_at": {},
+        "published_urls": {},
+        "session_dir": str(session),
+        "tags": [],
+    })
+
+    config_path = tmp_path / "publish-config.md"
+    config_path.write_text("---\nnotify_enabled: false\n---\n")
+
+    with patch("scripts.publish.subprocess.run") as mock_run, \
+         patch("scripts.publish.REGISTRY_PATH", registry_path):
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout="https://instagram.com/p/test123",
+            stderr="",
+        )
+        results = publish(session, "instagram", dry_run=False, config_path=config_path)
+
+    entry = reg.get(session.name)
+    assert entry["status"] == "published"
+    assert "instagram" in entry["published_at"]
+    assert "instagram" in entry["published_urls"]
+
+
+def test_publish_skips_registry_when_entry_missing(tmp_path):
+    """Publish should not crash if session has no registry entry (backward compat)."""
+    from scripts.publish import publish
+
+    session = _make_session(tmp_path, ["image.png", "image-instagram.png"])
+    _make_post_caption(session)
+
+    registry_path = tmp_path / "content-registry.json"
+    registry_path.write_text("[]")
+
+    config_path = tmp_path / "publish-config.md"
+    config_path.write_text("---\nnotify_enabled: false\n---\n")
+
+    with patch("scripts.publish.subprocess.run") as mock_run, \
+         patch("scripts.publish.REGISTRY_PATH", registry_path):
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        results = publish(session, "instagram", dry_run=False, config_path=config_path)
+
+    assert results["instagram"]["success"] is True

@@ -16,7 +16,10 @@ from typing import Optional
 
 import yaml
 
+from scripts.registry import Registry
+
 COMPOSIO_BIN = str(Path.home() / ".composio" / "composio")
+REGISTRY_PATH = Path("vault/content-registry.json")
 
 
 class PublishError(Exception):
@@ -284,6 +287,40 @@ def _send_email(session_dir: Path, platforms: list[str], results: dict, config: 
 
 
 # ---------------------------------------------------------------------------
+# Registry integration
+# ---------------------------------------------------------------------------
+
+def _update_registry(session_dir: Path, platforms: list[str], results: dict) -> None:
+    try:
+        reg = Registry(REGISTRY_PATH)
+        entry = reg.get(session_dir.name)
+        if entry is None:
+            return
+        published_at = dict(entry.get("published_at") or {})
+        published_urls = dict(entry.get("published_urls") or {})
+        now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+        all_published = True
+        for p in platforms:
+            r = results.get(p, {})
+            if r.get("success") and not r.get("dry_run"):
+                published_at[p] = now
+                if r.get("url"):
+                    published_urls[p] = r["url"]
+            elif not r.get("dry_run"):
+                all_published = False
+        target_platforms = set(entry.get("platforms", []))
+        published_platforms = set(published_at.keys())
+        status = "published" if target_platforms <= published_platforms else entry.get("status", "draft")
+        reg.update(session_dir.name, {
+            "status": status,
+            "published_at": published_at,
+            "published_urls": published_urls,
+        })
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
 
@@ -326,6 +363,7 @@ def publish(
 
     if not dry_run:
         _send_email(session_dir, platforms, results, config)
+        _update_registry(session_dir, platforms, results)
 
     _print_summary(platforms, results)
     return results
