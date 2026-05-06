@@ -109,3 +109,46 @@ def adapt_linkedin(master: Image.Image, brand: dict) -> Image.Image:
     draw.rectangle([0, 0, target_w, LINKEDIN_ACCENT_BAR_H], fill=accent_color)
 
     return canvas
+
+
+# ---------------------------------------------------------------------------
+# Image generation
+# ---------------------------------------------------------------------------
+
+def generate_master_image(
+    prompt: str,
+    use_reference: bool = False,
+    photo_path: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> bytes:
+    """Generate a master image using the OpenAI images API.
+
+    When use_reference is True and photo_path is provided, uses images.edit
+    (reference-guided generation). Otherwise uses images.generate (description-only).
+
+    Returns raw PNG bytes decoded from the b64_json response.
+
+    Raises RuntimeError if no API key is available.
+    """
+    resolved_key = api_key or os.environ.get("OPENAI_API_KEY")
+    if not resolved_key:
+        raise RuntimeError("OPENAI_API_KEY is not set")
+    client = openai.OpenAI(api_key=resolved_key)
+
+    if use_reference and photo_path:
+        with open(photo_path, "rb") as f:
+            response = client.images.edit(
+                model="gpt-image-2",
+                image=f,
+                prompt=prompt,
+                size=MASTER_SIZE,
+                n=1,
+            )
+    else:
+        response = client.images.generate(
+            model="gpt-image-2",
+            prompt=prompt,
+            size=MASTER_SIZE,
+            n=1,
+        )
+    return base64.b64decode(response.data[0].b64_json)

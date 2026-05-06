@@ -1,4 +1,5 @@
 """Tests for scripts/generate_post.py"""
+import os
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -93,3 +94,61 @@ def test_adapt_linkedin_letterboxes_with_side_padding():
     # Center pixel should be the image color (red)
     center_x = result.size[0] // 2
     assert result.getpixel((center_x, mid_y)) == (255, 0, 0)
+
+
+# ---------------------------------------------------------------------------
+# Image generation — generate endpoint (no reference photo)
+# ---------------------------------------------------------------------------
+
+def _make_fake_b64(width: int = 1024, height: int = 1024) -> str:
+    return base64.b64encode(_make_fake_png(width, height)).decode()
+
+
+import base64
+FAKE_B64 = _make_fake_b64()
+
+
+@patch("scripts.generate_post.openai.OpenAI")
+def test_generate_master_image_calls_generate_endpoint(mock_openai_cls):
+    from scripts.generate_post import generate_master_image
+
+    mock_client = MagicMock()
+    mock_client.images.generate.return_value = MagicMock(
+        data=[MagicMock(b64_json=FAKE_B64)]
+    )
+    mock_openai_cls.return_value = mock_client
+
+    result = generate_master_image("A dramatic landscape", api_key="test-key")
+
+    mock_client.images.generate.assert_called_once()
+    kwargs = mock_client.images.generate.call_args[1]
+    assert kwargs["model"] == "gpt-image-2"
+    assert kwargs["size"] == "1024x1024"
+    assert kwargs["prompt"] == "A dramatic landscape"
+    assert isinstance(result, bytes)
+    img = Image.open(BytesIO(result))
+    assert img.size == (1024, 1024)
+
+
+@patch("scripts.generate_post.openai.OpenAI")
+def test_generate_master_image_without_reference_does_not_call_edit(mock_openai_cls):
+    from scripts.generate_post import generate_master_image
+
+    mock_client = MagicMock()
+    mock_client.images.generate.return_value = MagicMock(
+        data=[MagicMock(b64_json=FAKE_B64)]
+    )
+    mock_openai_cls.return_value = mock_client
+
+    generate_master_image("prompt", use_reference=False, api_key="test-key")
+
+    mock_client.images.generate.assert_called_once()
+    mock_client.images.edit.assert_not_called()
+
+
+def test_generate_master_image_raises_without_api_key():
+    from scripts.generate_post import generate_master_image
+
+    with patch.dict(os.environ, {}, clear=True):
+        with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
+            generate_master_image("prompt")
