@@ -57,6 +57,26 @@ def test_detect_empty_raises(tmp_path):
         detect_content_type(session)
 
 
+def test_detect_post_from_image_png(tmp_path):
+    from scripts.publish import detect_content_type
+    session = _make_session(tmp_path, ["image.png"])
+    assert detect_content_type(session) == "post"
+
+
+def test_detect_ambiguous_reel_and_post_raises(tmp_path):
+    from scripts.publish import detect_content_type, PublishError
+    session = _make_session(tmp_path, ["final.mp4", "image.png"])
+    with pytest.raises(PublishError, match="Ambiguous"):
+        detect_content_type(session)
+
+
+def test_detect_ambiguous_carousel_and_post_raises(tmp_path):
+    from scripts.publish import detect_content_type, PublishError
+    session = _make_session(tmp_path, ["1.png", "image.png"])
+    with pytest.raises(PublishError, match="Ambiguous"):
+        detect_content_type(session)
+
+
 # ---------------------------------------------------------------------------
 # Caption extraction
 # ---------------------------------------------------------------------------
@@ -159,7 +179,7 @@ def test_send_email_composio_not_found_does_not_raise(tmp_path, capsys):
     session_dir = tmp_path / "test-session"
     session_dir.mkdir()
 
-    config = {"notify_enabled": True, "notify_email": "test@example.com"}
+    config = {"notify_enabled": True, "notify_email": "test@example.com", "agent_mail_inbox_id": "inbox-123"}
 
     with patch("scripts.publish.subprocess.run", side_effect=FileNotFoundError("composio not found")):
         # Should NOT raise — should print a [WARN] instead

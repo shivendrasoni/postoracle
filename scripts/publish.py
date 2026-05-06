@@ -121,11 +121,13 @@ PLATFORM_REGISTRY: dict[str, dict[str, callable]] = {
 def detect_content_type(session_dir: Path) -> str:
     has_reel = (session_dir / "final.mp4").exists()
     has_carousel = (session_dir / "1.png").exists()
-    if has_reel and has_carousel:
-        raise PublishError(f"Ambiguous session: contains both final.mp4 and 1.png in {session_dir}")
-    if not has_reel and not has_carousel:
+    has_post = (session_dir / "image.png").exists()
+    found = [name for name, present in [("reel", has_reel), ("carousel", has_carousel), ("post", has_post)] if present]
+    if len(found) > 1:
+        raise PublishError(f"Ambiguous session: contains {', '.join(found)} assets in {session_dir}")
+    if not found:
         raise PublishError(f"No publishable asset found in session dir: {session_dir}")
-    return "reel" if has_reel else "carousel"
+    return found[0]
 
 
 def extract_caption(session_dir: Path, content_type: str) -> str:
@@ -216,16 +218,25 @@ def _send_email(session_dir: Path, platforms: list[str], results: dict, config: 
     subject = f"Published: {session_dir.name} → {', '.join(platforms)}"
     body = f"Session: {session_dir}\n\n{platform_summary}"
 
+    inbox_id = config.get("agent_mail_inbox_id", "")
+    if not inbox_id:
+        print("[WARN] agent_mail_inbox_id not set in publish-config.md — skipping email", file=sys.stderr)
+        return
+
     try:
         result = subprocess.run(
-            [COMPOSIO_BIN, "execute", "GMAIL_SEND_EMAIL", "-d",
-             json.dumps({"to": recipient, "subject": subject, "body": body})],
+            [COMPOSIO_BIN, "execute", "AGENT_MAIL_SEND_EMAIL", "-d",
+             json.dumps({"inbox_id": inbox_id, "to": [recipient], "subject": subject, "text": body})],
             capture_output=True,
             text=True,
         )
         if result.returncode != 0:
             err = result.stderr.strip() or result.stdout.strip()
             print(f"[WARN] Email notification failed: {err}", file=sys.stderr)
+        else:
+            parsed = json.loads(result.stdout)
+            if not parsed.get("successful"):
+                print(f"[WARN] Email notification failed: {parsed.get('error')}", file=sys.stderr)
     except (FileNotFoundError, OSError) as exc:
         print(f"[WARN] Email notification failed: {exc}", file=sys.stderr)
 
