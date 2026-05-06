@@ -8,6 +8,27 @@ allowed-tools: Bash, Read
 
 Publish a finished reel or carousel session to social platforms.
 
+## 0. List Unpublished (if no arguments)
+
+If `$ARGUMENTS` is empty or `--list`:
+
+```bash
+python3 scripts/registry.py list --status draft
+```
+
+Display the result as a numbered list:
+```
+Unpublished content:
+1) 2026-05-05-stop-trying-to-be-creative-just-see-what (carousel, instagram)
+2) 2026-05-05-url (carousel, instagram)
+3) 2026-05-06-openai-age-predictor (post, instagram, linkedin)
+```
+
+Ask: "Enter the number of the session to publish, and the platform (instagram/linkedin/all):"
+Use the selected entry's `session_dir` as `SESSION_DIR` and proceed to Step 2.
+
+If the user provided arguments, skip this step and proceed to Step 1 as before.
+
 ## 1. Resolve Session Directory
 
 Parse `$ARGUMENTS`:
