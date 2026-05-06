@@ -29,6 +29,15 @@ class Registry:
                 return e
         return None
 
+    def update(self, entry_id: str, fields: dict) -> None:
+        entries = self._load()
+        for entry in entries:
+            if entry["id"] == entry_id:
+                entry.update(fields)
+                self._save(entries)
+                return
+        raise KeyError(f"Entry '{entry_id}' not found in registry")
+
     def list(self, **filters) -> list[dict]:
         entries = self._load()
         for key, value in filters.items():

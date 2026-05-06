@@ -114,3 +114,38 @@ def test_list_combines_filters(tmp_path):
 def test_list_empty_registry(tmp_path):
     reg = Registry(tmp_path / "registry.json")
     assert reg.list() == []
+
+
+def test_update_changes_status(tmp_path):
+    reg = Registry(tmp_path / "registry.json")
+    reg.add(_sample_entry(id="post-1", status="draft"))
+    reg.update("post-1", {"status": "published"})
+    assert reg.get("post-1")["status"] == "published"
+
+
+def test_update_merges_published_at(tmp_path):
+    reg = Registry(tmp_path / "registry.json")
+    reg.add(_sample_entry(id="post-1", published_at={}))
+    reg.update("post-1", {
+        "published_at": {"instagram": "2026-05-06T18:00:00Z"},
+        "published_urls": {"instagram": "https://instagram.com/p/123"},
+    })
+    result = reg.get("post-1")
+    assert result["published_at"]["instagram"] == "2026-05-06T18:00:00Z"
+    assert result["published_urls"]["instagram"] == "https://instagram.com/p/123"
+
+
+def test_update_nonexistent_raises(tmp_path):
+    reg = Registry(tmp_path / "registry.json")
+    reg.add(_sample_entry(id="post-1"))
+    with pytest.raises(KeyError, match="not found"):
+        reg.update("nonexistent", {"status": "published"})
+
+
+def test_update_preserves_other_fields(tmp_path):
+    reg = Registry(tmp_path / "registry.json")
+    reg.add(_sample_entry(id="post-1", topic="Original topic", status="draft"))
+    reg.update("post-1", {"status": "scheduled"})
+    result = reg.get("post-1")
+    assert result["topic"] == "Original topic"
+    assert result["status"] == "scheduled"
