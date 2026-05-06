@@ -1,0 +1,47 @@
+[
+  {
+    "id": "2026-05-05-stop-trying-to-be-creative-just-see-what",
+    "type": "carousel",
+    "topic": "Stop trying to be creative. Just see whats going viral and repurpose it.",
+    "source_url": null,
+    "platforms": ["instagram"],
+    "status": "draft",
+    "virality_score": null,
+    "created_at": "2026-05-05T02:24:00Z",
+    "scheduled_at": null,
+    "published_at": {},
+    "published_urls": {},
+    "session_dir": "vault/outputs/carousels/2026-05-05-stop-trying-to-be-creative-just-see-what",
+    "tags": []
+  },
+  {
+    "id": "2026-05-05-url",
+    "type": "carousel",
+    "topic": "https://addyosmani.com/blog/agent-harness-engineering/",
+    "source_url": "https://addyosmani.com/blog/agent-harness-engineering/",
+    "platforms": ["instagram"],
+    "status": "draft",
+    "virality_score": null,
+    "created_at": "2026-05-05T04:51:00Z",
+    "scheduled_at": null,
+    "published_at": {},
+    "published_urls": {},
+    "session_dir": "vault/outputs/carousels/2026-05-05-url",
+    "tags": []
+  },
+  {
+    "id": "2026-05-06-openai-age-predictor",
+    "type": "post",
+    "topic": "https://www.educative.io/newsletter/artificial-intelligence/openai-age-predictor",
+    "source_url": "https://www.educative.io/newsletter/artificial-intelligence/openai-age-predictor",
+    "platforms": ["instagram", "linkedin"],
+    "status": "draft",
+    "virality_score": null,
+    "created_at": "2026-05-06T17:28:00Z",
+    "scheduled_at": null,
+    "published_at": {},
+    "published_urls": {},
+    "session_dir": "vault/outputs/posts/2026-05-06-openai-age-predictor",
+    "tags": []
+  }
+]
