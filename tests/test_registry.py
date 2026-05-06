@@ -149,3 +149,64 @@ def test_update_preserves_other_fields(tmp_path):
     result = reg.get("post-1")
     assert result["topic"] == "Original topic"
     assert result["status"] == "scheduled"
+
+
+from scripts.registry import compute_virality_score
+
+
+def test_score_returns_float():
+    entry = _sample_entry(type="post", platforms=["instagram"])
+    score = compute_virality_score(entry)
+    assert isinstance(score, float)
+
+
+def test_score_between_0_and_10():
+    entry = _sample_entry(type="post", platforms=["instagram"])
+    score = compute_virality_score(entry)
+    assert 0.0 <= score <= 10.0
+
+
+def test_score_reel_higher_than_post():
+    post = _sample_entry(type="post", platforms=["instagram"])
+    reel = _sample_entry(type="reel", platforms=["instagram"])
+    assert compute_virality_score(reel) > compute_virality_score(post)
+
+
+def test_score_carousel_higher_than_post():
+    post = _sample_entry(type="post", platforms=["instagram"])
+    carousel = _sample_entry(type="carousel", platforms=["instagram"])
+    assert compute_virality_score(carousel) > compute_virality_score(post)
+
+
+def test_score_multi_platform_bonus():
+    single = _sample_entry(platforms=["instagram"])
+    multi = _sample_entry(platforms=["instagram", "linkedin"])
+    assert compute_virality_score(multi) > compute_virality_score(single)
+
+
+def test_score_brand_loaded_bonus():
+    without = compute_virality_score(_sample_entry(), brand_loaded=False)
+    with_brand = compute_virality_score(_sample_entry(), brand_loaded=True)
+    assert with_brand > without
+
+
+def test_score_hook_strength_bonus():
+    no_hook = compute_virality_score(_sample_entry(), hook_text="here is some info")
+    strong_hook = compute_virality_score(_sample_entry(), hook_text="Stop doing this. Here's what nobody tells you about AI.")
+    assert strong_hook > no_hook
+
+
+def test_score_cta_bonus():
+    no_cta = compute_virality_score(_sample_entry(), hook_text="plain text")
+    with_cta = compute_virality_score(_sample_entry(), hook_text="Comment AGENT below and I'll DM you the guide")
+    assert with_cta > no_cta
+
+
+def test_score_max_signals_does_not_exceed_10():
+    entry = _sample_entry(type="reel", platforms=["instagram", "linkedin", "x"])
+    score = compute_virality_score(
+        entry,
+        hook_text="Stop doing this. Nobody tells you the truth. Comment below for the free guide.",
+        brand_loaded=True,
+    )
+    assert score <= 10.0
