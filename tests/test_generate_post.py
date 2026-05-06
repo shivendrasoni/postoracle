@@ -1,4 +1,5 @@
 """Tests for scripts/generate_post.py"""
+import base64
 import os
 from io import BytesIO
 from pathlib import Path
@@ -104,7 +105,6 @@ def _make_fake_b64(width: int = 1024, height: int = 1024) -> str:
     return base64.b64encode(_make_fake_png(width, height)).decode()
 
 
-import base64
 FAKE_B64 = _make_fake_b64()
 
 
@@ -152,3 +152,52 @@ def test_generate_master_image_raises_without_api_key():
     with patch.dict(os.environ, {}, clear=True):
         with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
             generate_master_image("prompt")
+
+
+# ---------------------------------------------------------------------------
+# Image generation — edit endpoint (reference photo)
+# ---------------------------------------------------------------------------
+
+@patch("scripts.generate_post.openai.OpenAI")
+def test_generate_master_image_with_reference_calls_edit(mock_openai_cls, tmp_path):
+    from scripts.generate_post import generate_master_image
+
+    mock_client = MagicMock()
+    mock_client.images.edit.return_value = MagicMock(
+        data=[MagicMock(b64_json=FAKE_B64)]
+    )
+    mock_openai_cls.return_value = mock_client
+
+    photo = tmp_path / "me.png"
+    photo.write_bytes(FAKE_PNG_BYTES)
+
+    result = generate_master_image(
+        "Creator in superhero costume",
+        use_reference=True,
+        photo_path=str(photo),
+        api_key="test-key",
+    )
+
+    mock_client.images.edit.assert_called_once()
+    kwargs = mock_client.images.edit.call_args[1]
+    assert kwargs["model"] == "gpt-image-2"
+    assert kwargs["prompt"] == "Creator in superhero costume"
+    assert kwargs["size"] == "1024x1024"
+    mock_client.images.generate.assert_not_called()
+    assert isinstance(result, bytes)
+
+
+@patch("scripts.generate_post.openai.OpenAI")
+def test_generate_master_image_reference_flag_without_path_falls_back_to_generate(mock_openai_cls):
+    from scripts.generate_post import generate_master_image
+
+    mock_client = MagicMock()
+    mock_client.images.generate.return_value = MagicMock(
+        data=[MagicMock(b64_json=FAKE_B64)]
+    )
+    mock_openai_cls.return_value = mock_client
+
+    generate_master_image("prompt", use_reference=True, photo_path=None, api_key="test-key")
+
+    mock_client.images.generate.assert_called_once()
+    mock_client.images.edit.assert_not_called()
