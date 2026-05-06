@@ -9,8 +9,8 @@ allowed-tools: Bash, Read, Write
 ## 0. Parse Arguments
 
 Parse `$ARGUMENTS`:
-- *(empty)* → full first-run interview (all 10 modules in sequence)
-- `--module <name>` → re-run a single module; valid names: `niche style competitors goals cta watermark brand pillars audience strategy`
+- *(empty)* → full first-run interview (all 11 modules in sequence)
+- `--module <name>` → re-run a single module; valid names: `niche style competitors goals cta watermark brand pillars audience strategy photo`
 - `--list` → show status of all modules and exit
 
 ## 1. `--list` Mode
@@ -85,7 +85,7 @@ mkdir -p "$(pwd)/vault/assets"
 mkdir -p "$(pwd)/vault/logs"
 ```
 
-Run all 10 modules in sequence. **Do not proceed to the next module until the current one is written and confirmed.**
+Run all 11 modules in sequence. **Do not proceed to the next module until the current one is written and confirmed.**
 
 ---
 
@@ -483,9 +483,48 @@ Run: `python3 scripts/brand_voice.py --vault "$(pwd)/vault" write --module strat
 
 ---
 
+### Module 8: photo
+
+Ask the user:
+- "Do you want to include your photo in AI-generated post images? This helps create personalized visuals where you appear in the scene."
+
+**If yes:**
+- "Please copy a clear, well-lit headshot or full-body photo to `vault/assets/` and tell me the filename."
+
+Check the file exists:
+```bash
+ls "$(pwd)/vault/assets/<filename>" 2>/dev/null
+```
+
+If not found, prompt: "File not found. Please copy it to `vault/assets/<filename>` and press Enter."
+
+**When file is confirmed:** Read the image using the Read tool to see the person's appearance. Write a detailed physical description (build, skin tone, hair, distinguishing features) suitable for use in GPT-image-2 prompts.
+
+Write `vault/brand/modules/photo.md`:
+
+```
+---
+module: photo
+photo_path: vault/assets/<filename>
+description: "<physical description of the person for GPT-image-2 prompts>"
+last_updated: <YYYY-MM-DD>
+---
+
+## Photo Notes
+
+<Any notes about preferred visual styles, poses, or contexts for AI-generated images>
+```
+
+Run: `python3 scripts/brand_voice.py --vault "$(pwd)/vault" write --module photo`
+
+**If no:**
+- Skip this module. Print: `[SKIP] Photo module skipped — /make-post will use description-only image generation.`
+
+---
+
 ### Final: Compile master
 
-After all 10 modules are written:
+After all 11 modules are written:
 
 ```bash
 python3 scripts/brand_voice.py --vault "$(pwd)/vault" compile
