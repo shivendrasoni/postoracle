@@ -16,6 +16,9 @@ Parse `$ARGUMENTS`:
 - `--slides` — default `5`; must be `5` or `6`. If any other value is provided, stop with: `[ERROR] --slides must be 5 or 6`
 - mode flag — `--preview` (default), `--auto`, or `--manual`. If multiple mode flags are present, use the most restrictive: `--manual` > `--preview` > `--auto`
 - `--auto-publish instagram|linkedin|all` — optional; if present, publish after pipeline completes. Parse the value that follows `--auto-publish` as `$AUTO_PUBLISH`.
+- `--from-angle <path>` — optional; path to a vault angle file. Skips Stage 1 (Research). The angle's talking_points seed the slide plan.
+
+If `--from-angle` is set, `<input>` is not required (topic comes from the angle file).
 
 Load environment from `.env` in the project root:
 ```bash
@@ -47,7 +50,30 @@ mkdir -p "$(pwd)/vault/logs"
 echo "Session folder: $SESSION_DIR"
 ```
 
+## 1.3. Load Angle (conditional)
+
+**If `--from-angle` is set:**
+
+```bash
+python3 -c "
+from scripts.parse_angle import read_angle
+import yaml
+fm, body = read_angle('$FROM_ANGLE_PATH')
+print(yaml.dump(fm, default_flow_style=False))
+print('---')
+print(body)
+"
+```
+
+Extract `topic`, `contrast`, `talking_points`, and `hook_pattern`. Write the angle body + talking points to `$SESSION_DIR/research.md` as the research output.
+
+Set `$INPUT` from the angle's `topic` field if not already set.
+
+**Skip to Stage 2 (Plan Slides).**
+
 ## 2. Stage 1 — Research
+
+**Skip this stage if `--from-angle` is set.**
 
 **If input starts with `https://github.com`:**
 - Use `WebFetch` on the repo URL to fetch the README
