@@ -32,7 +32,7 @@ FALLBACK_PALETTE = {
 MASTER_SIZE = "1024x1024"
 INSTAGRAM_SIZE = (1080, 1080)
 LINKEDIN_SIZE = (1200, 627)
-LINKEDIN_ACCENT_BAR_H = 4
+LINKEDIN_ACCENT_BAR_H = 3
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +71,7 @@ def load_brand(path: Optional[str]) -> dict:
         if "font" in fm:
             result["font"] = fm["font"]
         return result
-    except Exception:
+    except (yaml.YAMLError, OSError):
         return dict(FALLBACK_PALETTE)
 
 

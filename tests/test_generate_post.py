@@ -1,5 +1,4 @@
 """Tests for scripts/generate_post.py"""
-import json
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
