@@ -1,6 +1,27 @@
-# Content Creation CLI — Command Reference
+# PostOracle — Command Reference
 
 Quick reference for all available slash commands.
+
+---
+
+## /setup
+First-time setup wizard — checks dependencies, API keys, platform connections, brand voice, and avatar config.
+
+**Usage:**
+```
+/setup            # Interactive guided setup
+/setup --check    # Quick status check (non-interactive)
+```
+
+**What it checks:**
+- Python 3.11+ and pip dependencies
+- `.env` file and API keys (OPENAI, HEYGEN, PEXELS)
+- Composio CLI and platform connections (Instagram, LinkedIn, X)
+- Vault directory structure
+- Brand voice module status
+- HeyGen avatar configuration
+
+**Output:** Status report with next steps.
 
 ---
 

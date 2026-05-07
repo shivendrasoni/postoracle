@@ -2,19 +2,35 @@
 
 AI-powered content creation pipeline. Turns any URL, topic, or idea into publish-ready social media content using Claude Code as the orchestrator.
 
-## Quick Start
+## Welcome Banner
 
-```bash
-pip install -r requirements.txt
-cp .env.example .env   # fill in API keys
+On the first user message of every conversation, display this banner before responding:
+
+```
+ ____           _    ___                  _
+|  _ \ ___  ___| |_ / _ \ _ __ __ _  ___| | ___
+| |_) / _ \/ __| __| | | | '__/ _` |/ __| |/ _ \
+|  __/ (_) \__ \ |_| |_| | | | (_| | (__| |  __/
+|_|   \___/|___/\__|\___/|_|  \__,_|\___|_|\___|
+
+  idea → research → script → create → publish
+  ─────────────────────────────────────────────
+  /setup           First-time setup wizard
+  /make-reel       Short-form video pipeline
+  /make-carousel   Branded slide deck
+  /make-post       Single-image post
+  /viral-angle     Content angle generator
+  /brand-voice     Brand identity builder
+  /publish         Push to social platforms
 ```
 
-Then run `/brand-voice` to set up your creator identity, and `/heygen-avatar` to create your digital presenter.
+After the banner, respond to whatever the user asked. If it's a greeting or open-ended message, suggest `/setup` if `.env` doesn't exist, or suggest a creation command if everything is configured.
 
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
+| `/setup` | First-time setup wizard — deps, API keys, platform connections |
 | `/make-reel <topic>` | Full video pipeline: research → script → HeyGen → b-roll → edit |
 | `/make-carousel <topic>` | 5–6 branded slide images + caption |
 | `/make-post <topic>` | Single-image post per platform |
