@@ -83,6 +83,11 @@ mkdir -p "$(pwd)/vault/library/scripts"
 mkdir -p "$(pwd)/vault/imports"
 mkdir -p "$(pwd)/vault/assets"
 mkdir -p "$(pwd)/vault/logs"
+
+# Scaffold template files if they don't exist
+[ ! -f "$(pwd)/vault/content-dashboard.md" ] && cp "$(pwd)/templates/content-dashboard.md" "$(pwd)/vault/content-dashboard.md"
+[ ! -f "$(pwd)/vault/publish-config.md" ] && cp "$(pwd)/templates/publish-config.md" "$(pwd)/vault/publish-config.md"
+[ ! -f "$(pwd)/vault/content-registry.json" ] && echo "[]" > "$(pwd)/vault/content-registry.json"
 ```
 
 Run all 11 modules in sequence. **Do not proceed to the next module until the current one is written and confirmed.**

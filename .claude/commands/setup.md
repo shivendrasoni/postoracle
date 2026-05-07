@@ -156,6 +156,11 @@ mkdir -p vault/library/scripts
 mkdir -p vault/imports
 mkdir -p vault/assets
 mkdir -p vault/logs
+
+# Scaffold template files if they don't exist
+[ ! -f vault/content-dashboard.md ] && cp templates/content-dashboard.md vault/content-dashboard.md
+[ ! -f vault/publish-config.md ] && cp templates/publish-config.md vault/publish-config.md
+[ ! -f vault/content-registry.json ] && echo "[]" > vault/content-registry.json
 ```
 
 Mark: `VAULT=ok`
