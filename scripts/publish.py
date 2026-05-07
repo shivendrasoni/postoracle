@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-publish.py — Platform publisher for reel and carousel sessions.
+publish.py — Platform publisher for reel, carousel, and post sessions.
 
 Usage:
-  python3 scripts/publish.py --session-dir <path> --platform instagram|linkedin|all [--dry-run]
+  python3 -m scripts.publish --session-dir <path> --platform instagram|linkedin|all [--dry-run]
 """
 
 import argparse
@@ -27,109 +27,144 @@ class PublishError(Exception):
 
 
 # ---------------------------------------------------------------------------
-# Platform registry — add new platforms here only
+# Instagram helpers (two-step: create container → publish)
+# ---------------------------------------------------------------------------
+
+def _instagram_get_user_id() -> str:
+    result = _composio_call_raw("INSTAGRAM_GET_USER_INFO", {})
+    if not result.get("successful"):
+        raise PublishError(f"Could not get Instagram user ID: {result.get('error')}")
+    return result["data"]["id"]
+
+
+def _instagram_create_and_publish(payload: dict) -> dict:
+    ig_user_id = _instagram_get_user_id()
+    payload["ig_user_id"] = ig_user_id
+
+    create_result = _composio_call_raw("INSTAGRAM_POST_IG_USER_MEDIA", payload)
+    if not create_result.get("successful"):
+        err = create_result.get("error") or create_result.get("data", {}).get("error", {}).get("message", "unknown")
+        return {"success": False, "url": None, "error": f"Container creation failed: {err}"}
+
+    creation_id = create_result["data"].get("id")
+    if not creation_id:
+        return {"success": False, "url": None, "error": f"No container ID returned: {create_result['data']}"}
+
+    publish_result = _composio_call_raw(
+        "INSTAGRAM_POST_IG_USER_MEDIA_PUBLISH",
+        {"ig_user_id": ig_user_id, "creation_id": creation_id},
+    )
+    if not publish_result.get("successful"):
+        err = publish_result.get("error") or "publish step failed"
+        return {"success": False, "url": None, "error": f"Publish failed: {err}"}
+
+    ig_media_id = publish_result["data"].get("id")
+    permalink = None
+    if ig_media_id:
+        try:
+            media_result = _composio_call_raw(
+                "INSTAGRAM_GET_IG_MEDIA",
+                {"ig_media_id": ig_media_id, "fields": "permalink"},
+            )
+            permalink = media_result.get("data", {}).get("permalink")
+        except Exception:
+            pass
+
+    return {"success": True, "url": permalink, "error": None}
+
+
+# ---------------------------------------------------------------------------
+# Platform handlers
 # ---------------------------------------------------------------------------
 
 def _instagram_reel(session_dir: Path, caption: str, config: dict) -> dict:
-    return _composio_call(
-        slug="INSTAGRAM_CREATE_REEL",
-        payload={
-            "video_path": str(session_dir / "final.mp4"),
-            "caption": caption,
-        },
-    )
+    return _instagram_create_and_publish({
+        "video_file": str(session_dir / "final.mp4"),
+        "media_type": "REELS",
+        "caption": caption,
+    })
 
 
 def _instagram_carousel(session_dir: Path, caption: str, config: dict) -> dict:
+    ig_user_id = _instagram_get_user_id()
     image_paths = sorted(str(p) for p in session_dir.glob("*.png") if p.name[0].isdigit())
-    _check_composio()
-    script = f"""
-const container = await execute("INSTAGRAM_CREATE_CAROUSEL_CONTAINER", {{
-  ig_user_id: "me",
-  caption: {json.dumps(caption)},
-  child_image_files: {json.dumps(image_paths)},
-}});
-if (!container.data?.id) {{
-  console.log(JSON.stringify({{ success: false, error: "No container ID: " + JSON.stringify(container.data) }}));
-  process.exit(0);
-}}
-const published = await execute("INSTAGRAM_POST_IG_USER_MEDIA_PUBLISH", {{
-  ig_user_id: "me",
-  creation_id: container.data.id,
-}});
-const ig_media_id = published.data?.id;
-let permalink = null;
-if (ig_media_id) {{
-  try {{
-    const media = await execute("INSTAGRAM_GET_IG_MEDIA", {{ ig_media_id, fields: "permalink" }});
-    permalink = media.data?.permalink || null;
-  }} catch (_) {{}}
-}}
-console.log(JSON.stringify({{ success: true, url: permalink }}));
-"""
-    result = subprocess.run(
-        [COMPOSIO_BIN, "run", "--logs-off", script],
-        capture_output=True,
-        text=True,
+
+    child_ids = []
+    for img_path in image_paths:
+        child_result = _composio_call_raw("INSTAGRAM_POST_IG_USER_MEDIA", {
+            "ig_user_id": ig_user_id,
+            "image_file": img_path,
+            "is_carousel_item": True,
+        })
+        if not child_result.get("successful") or not child_result.get("data", {}).get("id"):
+            return {"success": False, "url": None, "error": f"Failed to create carousel child for {img_path}: {child_result.get('error')}"}
+        child_ids.append(child_result["data"]["id"])
+
+    container_result = _composio_call_raw("INSTAGRAM_POST_IG_USER_MEDIA", {
+        "ig_user_id": ig_user_id,
+        "media_type": "CAROUSEL",
+        "caption": caption,
+        "children": child_ids,
+    })
+    if not container_result.get("successful") or not container_result.get("data", {}).get("id"):
+        return {"success": False, "url": None, "error": f"Carousel container failed: {container_result.get('error')}"}
+
+    creation_id = container_result["data"]["id"]
+    publish_result = _composio_call_raw(
+        "INSTAGRAM_POST_IG_USER_MEDIA_PUBLISH",
+        {"ig_user_id": ig_user_id, "creation_id": creation_id},
     )
-    if result.returncode != 0:
-        err = result.stderr.strip() or result.stdout.strip()
-        if "not connected" in err.lower() or "not authenticated" in err.lower():
-            return {"success": False, "url": None, "error": "Not connected — run: composio link instagram"}
-        return {"success": False, "url": None, "error": err}
-    try:
-        data = json.loads(result.stdout.strip().splitlines()[-1])
-        return {"success": data.get("success", False), "url": data.get("url"), "error": data.get("error")}
-    except Exception as exc:
-        return {"success": False, "url": None, "error": f"Could not parse composio output: {exc}\n{result.stdout}"}
+    if not publish_result.get("successful"):
+        return {"success": False, "url": None, "error": f"Carousel publish failed: {publish_result.get('error')}"}
+
+    ig_media_id = publish_result["data"].get("id")
+    permalink = None
+    if ig_media_id:
+        try:
+            media_result = _composio_call_raw(
+                "INSTAGRAM_GET_IG_MEDIA",
+                {"ig_media_id": ig_media_id, "fields": "permalink"},
+            )
+            permalink = media_result.get("data", {}).get("permalink")
+        except Exception:
+            pass
+
+    return {"success": True, "url": permalink, "error": None}
 
 
-def _linkedin_reel(session_dir: Path, caption: str, config: dict) -> dict:
-    return _composio_call(
-        slug="LINKEDIN_CREATE_VIDEO_POST",
-        payload={
-            "video_path": str(session_dir / "final.mp4"),
-            "text": caption,
-        },
-    )
+def _instagram_post(session_dir: Path, caption: str, config: dict) -> dict:
+    return _instagram_create_and_publish({
+        "image_file": str(session_dir / "image-instagram.png"),
+        "caption": caption,
+    })
+
+
+def _linkedin_post(session_dir: Path, caption: str, config: dict) -> dict:
+    image_path = session_dir / "image-linkedin.png"
+    payload = {"commentary": caption, "visibility": "PUBLIC"}
+    if image_path.exists():
+        payload["images"] = [str(image_path)]
+    return _composio_call_parsed("LINKEDIN_CREATE_LINKED_IN_POST", payload)
 
 
 def _linkedin_carousel(session_dir: Path, caption: str, config: dict) -> dict:
     image_paths = sorted(str(p) for p in session_dir.glob("*.png") if p.name[0].isdigit())
-    return _composio_call(
-        slug="LINKEDIN_CREATE_IMAGE_POST",
-        payload={
-            "image_paths": image_paths,
-            "text": caption,
-        },
-    )
+    return _composio_call_parsed("LINKEDIN_CREATE_LINKED_IN_POST", {
+        "images": image_paths,
+        "commentary": caption,
+        "visibility": "PUBLIC",
+    })
 
 
-def _instagram_post(session_dir: Path, caption: str, config: dict) -> dict:
-    return _composio_call(
-        slug="INSTAGRAM_CREATE_PHOTO_POST",
-        payload={
-            "image_path": str(session_dir / "image-instagram.png"),
-            "caption": caption,
-        },
-    )
-
-
-def _linkedin_post(session_dir: Path, caption: str, config: dict) -> dict:
-    return _composio_call(
-        slug="LINKEDIN_CREATE_IMAGE_POST",
-        payload={
-            "image_paths": [str(session_dir / "image-linkedin.png")],
-            "text": caption,
-        },
-    )
+def _linkedin_reel(session_dir: Path, caption: str, config: dict) -> dict:
+    return _composio_call_parsed("LINKEDIN_CREATE_LINKED_IN_POST", {
+        "commentary": caption,
+        "visibility": "PUBLIC",
+    })
 
 
 def _x_post(session_dir: Path, caption: str, config: dict) -> dict:
-    return _composio_call(
-        slug="TWITTER_CREATION_OF_A_POST",
-        payload={"text": caption},
-    )
+    return _composio_call_parsed("TWITTER_CREATION_OF_A_POST", {"text": caption})
 
 
 PLATFORM_REGISTRY: dict[str, dict[str, callable]] = {
@@ -221,7 +256,8 @@ def load_config(config_path: Path) -> dict:
 # Composio integration
 # ---------------------------------------------------------------------------
 
-def _composio_call(slug: str, payload: dict) -> dict:
+def _composio_call_raw(slug: str, payload: dict) -> dict:
+    """Execute a Composio tool and return the parsed JSON response."""
     _check_composio()
     result = subprocess.run(
         [COMPOSIO_BIN, "execute", slug, "-d", json.dumps(payload)],
@@ -232,9 +268,22 @@ def _composio_call(slug: str, payload: dict) -> dict:
         err = result.stderr.strip() or result.stdout.strip()
         if "not connected" in err.lower() or "not authenticated" in err.lower():
             platform_guess = slug.split("_")[0].lower()
-            return {"success": False, "url": None, "error": f"Not connected — run: composio link {platform_guess}"}
+            return {"successful": False, "error": f"Not connected — run: composio link {platform_guess}"}
+        return {"successful": False, "error": err}
+    try:
+        return json.loads(result.stdout.strip())
+    except (json.JSONDecodeError, ValueError):
+        return {"successful": False, "error": f"Could not parse output: {result.stdout[:500]}"}
+
+
+def _composio_call_parsed(slug: str, payload: dict) -> dict:
+    """Execute a Composio tool and return a normalized {success, url, error} dict."""
+    raw = _composio_call_raw(slug, payload)
+    if not raw.get("successful"):
+        err = raw.get("error") or "unknown error"
         return {"success": False, "url": None, "error": err}
-    url_match = re.search(r"https?://\S+", result.stdout)
+    url_str = json.dumps(raw.get("data", {}))
+    url_match = re.search(r"https?://[^\s\"']+", url_str)
     return {"success": True, "url": url_match.group(0) if url_match else None, "error": None}
 
 
@@ -299,15 +348,12 @@ def _update_registry(session_dir: Path, platforms: list[str], results: dict) -> 
         published_at = dict(entry.get("published_at") or {})
         published_urls = dict(entry.get("published_urls") or {})
         now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
-        all_published = True
         for p in platforms:
             r = results.get(p, {})
             if r.get("success") and not r.get("dry_run"):
                 published_at[p] = now
                 if r.get("url"):
                     published_urls[p] = r["url"]
-            elif not r.get("dry_run"):
-                all_published = False
         target_platforms = set(entry.get("platforms", []))
         published_platforms = set(published_at.keys())
         status = "published" if target_platforms <= published_platforms else entry.get("status", "draft")

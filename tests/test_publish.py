@@ -293,6 +293,24 @@ def test_send_email_composio_not_found_does_not_raise(tmp_path, capsys):
     assert "Email notification failed" in captured.err
 
 
+def _instagram_mock_side_effect(*args, **kwargs):
+    """Return appropriate JSON for each Instagram API call in sequence."""
+    import json as _json
+    cmd = args[0] if args else kwargs.get("args", [])
+    slug = cmd[2] if len(cmd) > 2 else ""
+    if slug == "INSTAGRAM_GET_USER_INFO":
+        stdout = _json.dumps({"successful": True, "data": {"id": "12345"}, "error": None})
+    elif slug == "INSTAGRAM_POST_IG_USER_MEDIA":
+        stdout = _json.dumps({"successful": True, "data": {"id": "container_99"}, "error": None})
+    elif slug == "INSTAGRAM_POST_IG_USER_MEDIA_PUBLISH":
+        stdout = _json.dumps({"successful": True, "data": {"id": "media_42"}, "error": None})
+    elif slug == "INSTAGRAM_GET_IG_MEDIA":
+        stdout = _json.dumps({"successful": True, "data": {"permalink": "https://instagram.com/p/test123"}, "error": None})
+    else:
+        stdout = _json.dumps({"successful": True, "data": {}, "error": None})
+    return MagicMock(returncode=0, stdout=stdout, stderr="")
+
+
 def test_publish_updates_registry_on_success(tmp_path):
     from scripts.registry import Registry
     from scripts.publish import publish
@@ -321,13 +339,8 @@ def test_publish_updates_registry_on_success(tmp_path):
     config_path = tmp_path / "publish-config.md"
     config_path.write_text("---\nnotify_enabled: false\n---\n")
 
-    with patch("scripts.publish.subprocess.run") as mock_run, \
+    with patch("scripts.publish.subprocess.run", side_effect=_instagram_mock_side_effect) as mock_run, \
          patch("scripts.publish.REGISTRY_PATH", registry_path):
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="https://instagram.com/p/test123",
-            stderr="",
-        )
         results = publish(session, "instagram", dry_run=False, config_path=config_path)
 
     entry = reg.get(session.name)
@@ -349,9 +362,8 @@ def test_publish_skips_registry_when_entry_missing(tmp_path):
     config_path = tmp_path / "publish-config.md"
     config_path.write_text("---\nnotify_enabled: false\n---\n")
 
-    with patch("scripts.publish.subprocess.run") as mock_run, \
+    with patch("scripts.publish.subprocess.run", side_effect=_instagram_mock_side_effect) as mock_run, \
          patch("scripts.publish.REGISTRY_PATH", registry_path):
-        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
         results = publish(session, "instagram", dry_run=False, config_path=config_path)
 
     assert results["instagram"]["success"] is True

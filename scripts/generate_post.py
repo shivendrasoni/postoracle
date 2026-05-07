@@ -136,11 +136,18 @@ def generate_master_image(
     client = openai.OpenAI(api_key=resolved_key)
 
     if use_reference and photo_path:
+        ref_guard = (
+            " IMPORTANT: The reference photo is the person's real face. "
+            "Do NOT alter, modify, or distort any facial features, skin tone, "
+            "hair style, or physical appearance from the reference photo. "
+            "Preserve the person's exact likeness."
+        )
+        guarded_prompt = prompt + ref_guard
         with open(photo_path, "rb") as f:
             response = client.images.edit(
                 model="gpt-image-2",
                 image=f,
-                prompt=prompt,
+                prompt=guarded_prompt,
                 size=MASTER_SIZE,
                 n=1,
             )

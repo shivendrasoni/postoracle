@@ -181,7 +181,8 @@ def test_generate_master_image_with_reference_calls_edit(mock_openai_cls, tmp_pa
     mock_client.images.edit.assert_called_once()
     kwargs = mock_client.images.edit.call_args[1]
     assert kwargs["model"] == "gpt-image-2"
-    assert kwargs["prompt"] == "Creator in superhero costume"
+    assert kwargs["prompt"].startswith("Creator in superhero costume")
+    assert "Do NOT alter" in kwargs["prompt"]
     assert kwargs["size"] == "1024x1024"
     mock_client.images.generate.assert_not_called()
     assert isinstance(result, bytes)
