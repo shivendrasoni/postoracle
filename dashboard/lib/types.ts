@@ -34,10 +34,3 @@ export interface BrandModule {
   frontmatter: Record<string, unknown>;
   isEmpty: boolean;
 }
-
-export interface AnalyticsReport {
-  filename: string;
-  title: string;
-  generated_at: string;
-  content: string;
-}

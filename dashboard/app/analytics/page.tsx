@@ -1,31 +1,38 @@
-import {
-  readVaultFile,
-  listVaultDir,
-  vaultPathExists,
-} from "@/lib/vault";
-import matter from "gray-matter";
-import MarkdownViewer from "@/components/markdown-viewer";
+import { readVaultJson, vaultPathExists } from "@/lib/vault";
+import { computeAnalytics } from "@/lib/analytics";
 import AnimateIn from "@/components/animate-in";
-import type { AnalyticsReport } from "@/lib/types";
+import AnalyticsStatsGrid from "@/components/analytics-stats";
+import ContentTypesCard from "@/components/analytics-content-types";
+import PlatformsCard from "@/components/analytics-platforms";
+import AnalyticsLeaderboard from "@/components/analytics-leaderboard";
+import type { RegistryEntry } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function AnalyticsPage() {
-  const exists = await vaultPathExists("analytics");
+  const exists = await vaultPathExists("content-registry.json");
   if (!exists) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <div className="rounded-[2rem] bg-white/[0.02] border border-white/[0.06] p-2">
           <div className="rounded-[calc(2rem-0.5rem)] bg-surface/60 px-12 py-16 text-center shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]">
             <p className="text-lg font-medium text-content mb-2">
-              No analytics data
+              No content yet
             </p>
             <p className="text-[13px] text-sub">
-              Run{" "}
+              Create content with{" "}
+              <code className="font-mono text-accent bg-accent-soft px-2 py-0.5 rounded-md">
+                /make-reel
+              </code>{" "}
+              or{" "}
+              <code className="font-mono text-accent bg-accent-soft px-2 py-0.5 rounded-md">
+                /make-post
+              </code>{" "}
+              then run{" "}
               <code className="font-mono text-accent bg-accent-soft px-2 py-0.5 rounded-md">
                 /analytics
               </code>{" "}
-              in Claude Code to pull metrics.
+              to see performance here.
             </p>
           </div>
         </div>
@@ -33,31 +40,12 @@ export default async function AnalyticsPage() {
     );
   }
 
-  const files = await listVaultDir("analytics");
-  const mdFiles = files.filter((f) => f.name.endsWith(".md"));
-
-  const reports: AnalyticsReport[] = [];
-  for (const file of mdFiles) {
-    const raw = await readVaultFile(`analytics/${file.name}`);
-    const { data, content } = matter(raw);
-    const titleMatch = content.match(/^#\s+(.+)$/m);
-    reports.push({
-      filename: file.name,
-      title: titleMatch ? titleMatch[1] : file.name.replace(".md", ""),
-      generated_at: data.generated_at ?? "",
-      content,
-    });
-  }
-
-  const overviewReport = reports.find(
-    (r) => r.filename === "overview.md"
-  );
-  const otherReports = reports.filter(
-    (r) => r.filename !== "overview.md"
-  );
+  const entries = await readVaultJson<RegistryEntry[]>("content-registry.json");
+  const data = computeAnalytics(entries);
 
   return (
     <div>
+      {/* Header */}
       <AnimateIn>
         <div className="mb-10">
           <span className="rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.2em] font-medium bg-emerald-soft text-emerald">
@@ -66,36 +54,40 @@ export default async function AnalyticsPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-content mt-3">
             Analytics
           </h1>
-          {overviewReport && (
+          {data.lastFetchedAt && (
             <p className="text-[12px] text-muted mt-1">
-              Updated{" "}
-              {new Date(overviewReport.generated_at).toLocaleString()}
+              Last synced {new Date(data.lastFetchedAt).toLocaleString()}
+            </p>
+          )}
+          {data.isSparse && !data.lastFetchedAt && (
+            <p className="text-[12px] text-muted mt-1">
+              Run <code className="text-accent font-mono text-[11px]">/analytics</code> to pull engagement metrics
             </p>
           )}
         </div>
       </AnimateIn>
 
-      {overviewReport && (
-        <AnimateIn delay={100} className="mb-6">
-          <div className="rounded-[1.5rem] bg-white/[0.02] border border-white/[0.06] p-1.5">
-            <div className="rounded-[calc(1.5rem-0.375rem)] bg-surface/60 p-6 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]">
-              <MarkdownViewer content={overviewReport.content} />
-            </div>
-          </div>
-        </AnimateIn>
-      )}
+      {/* Stat cards bento */}
+      <AnimateIn delay={80}>
+        <AnalyticsStatsGrid stats={data.stats} isSparse={data.isSparse} />
+      </AnimateIn>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {otherReports.map((report, i) => (
-          <AnimateIn key={report.filename} delay={150 + i * 50}>
-            <div id={report.filename.replace(".md", "")} className="rounded-[1.5rem] bg-white/[0.02] border border-white/[0.06] p-1.5 h-full scroll-mt-16">
-              <div className="rounded-[calc(1.5rem-0.375rem)] bg-surface/60 p-6 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] h-full">
-                <MarkdownViewer content={report.content} />
-              </div>
-            </div>
-          </AnimateIn>
-        ))}
-      </div>
+      {/* Content types + Platforms — asymmetric split */}
+      <AnimateIn delay={160} className="mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+          <div className="md:col-span-7">
+            <ContentTypesCard types={data.contentTypes} />
+          </div>
+          <div className="md:col-span-5">
+            <PlatformsCard platforms={data.platforms} />
+          </div>
+        </div>
+      </AnimateIn>
+
+      {/* Leaderboard */}
+      <AnimateIn delay={240} className="mt-4">
+        <AnalyticsLeaderboard entries={data.leaderboard} />
+      </AnimateIn>
     </div>
   );
 }
