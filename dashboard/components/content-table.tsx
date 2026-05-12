@@ -10,6 +10,7 @@ import {
   File,
   CaretRight,
   SortAscending,
+  Eye,
 } from "@phosphor-icons/react";
 
 const TYPE_ICONS: Record<string, typeof FilmStrip> = {
@@ -199,13 +200,22 @@ export default function ContentTable({ entries }: ContentTableProps) {
                 >
                   <div className="px-5 py-4 pl-[4.75rem] border-t border-white/[0.04] bg-white/[0.01]">
                     <div className="grid grid-cols-2 gap-x-8 gap-y-2.5 text-[13px]">
-                      <div>
-                        <span className="text-muted">Session </span>
+                      <div className="flex items-center gap-3">
+                        <span>
+                          <span className="text-muted">Session </span>
+                          <a
+                            href={`/vault/${entry.session_dir.replace("vault/", "")}`}
+                            className="text-accent hover:underline transition-colors duration-300"
+                          >
+                            {entry.session_dir}
+                          </a>
+                        </span>
                         <a
                           href={`/vault/${entry.session_dir.replace("vault/", "")}`}
-                          className="text-accent hover:underline transition-colors duration-300"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent-soft text-accent text-[11px] font-medium hover:bg-accent/15 transition-colors duration-300"
                         >
-                          {entry.session_dir}
+                          <Eye size={12} weight="bold" />
+                          Preview
                         </a>
                       </div>
                       {entry.source_url && (
