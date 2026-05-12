@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+:root {
+  --bg-primary: #0a0a0f;
+  --bg-secondary: #12121a;
+  --bg-sidebar: #0e0e16;
+  --bg-card: #16161f;
+  --bg-hover: #1e1e2a;
+  --border: #1e1e2a;
+  --text-primary: #e4e4e7;
+  --text-secondary: #a1a1aa;
+  --text-muted: #52525b;
+  --accent: #e94560;
+  --accent-dim: rgba(233, 69, 96, 0.15);
+  --green: #4caf50;
+  --green-dim: rgba(76, 175, 80, 0.15);
+  --yellow: #ffc107;
+  --yellow-dim: rgba(255, 193, 7, 0.15);
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, sans-serif;
+}
