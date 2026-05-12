@@ -406,13 +406,15 @@ def _render_text_only(slide: dict, dimensions: tuple, brand: dict,
 
 def _render_image_bg_text(slide: dict, canvas_size: tuple, brand: dict,
                            api_size: str, api_key: Optional[str] = None,
-                           slide_index: int = None, slide_total: int = None) -> Image.Image:
+                           slide_index: int = None, slide_total: int = None,
+                           template: Optional[dict] = None) -> Image.Image:
     """
     Cinematic image-bg layout:
     - Full-bleed AI image
     - Gradient overlay (transparent at top → dark at bottom)
     - Headline + subtext centered in bottom 40%
     """
+    tmpl = template or DEFAULT_TEMPLATE
     width, height = canvas_size
     image_prompt = slide.get("image_prompt", "")
 
@@ -420,8 +422,9 @@ def _render_image_bg_text(slide: dict, canvas_size: tuple, brand: dict,
     bg_img = Image.open(BytesIO(raw_bytes)).convert("RGBA")
     bg_img = bg_img.resize((width, height), Image.LANCZOS)
 
+    overlay_alpha = _t(tmpl, "overlay", "alpha", default=OVERLAY_ALPHA)
     # Base uniform darken
-    base_overlay = Image.new("RGBA", (width, height), (0, 0, 0, OVERLAY_ALPHA))
+    base_overlay = Image.new("RGBA", (width, height), (0, 0, 0, overlay_alpha))
     # Bottom-weighted gradient overlay (0 at top → 210 at bottom)
     grad_overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     grad_draw = ImageDraw.Draw(grad_overlay)
@@ -436,17 +439,25 @@ def _render_image_bg_text(slide: dict, canvas_size: tuple, brand: dict,
     draw = ImageDraw.Draw(composed)
 
     text_color = _hex_to_rgb(brand["text"])
-    subtext_color = (220, 220, 235)
+    subtext_color = _hex_to_rgb(_t(tmpl, "colors", "text_secondary", default="#DCDCEB"))
     accent = _hex_to_rgb(brand.get("accent", FALLBACK_PALETTE["accent"]))
 
     headline = slide.get("headline", "")
     subtext = slide.get("subtext") or slide.get("body", "")
 
-    hl_font = _load_font(FONT_SIZE_HEADLINE_BG, bold=True)
-    st_font = _load_font(FONT_SIZE_SUBTEXT_BG, bold=False)
-    num_font = _load_font(FONT_SIZE_SLIDE_NUM, bold=False)
+    hl_size = _t(tmpl, "typography", "headline", "size", default=FONT_SIZE_HEADLINE_BG)
+    st_size = _t(tmpl, "typography", "body", "size", default=FONT_SIZE_SUBTEXT_BG)
+    ctr_size = _t(tmpl, "typography", "counter", "size", default=FONT_SIZE_SLIDE_NUM)
+    ctr_visible = _t(tmpl, "typography", "counter", "visible", default=True)
+    pad_x = _t(tmpl, "spacing", "content_padding_x", default=PAD_X)
+    divider_w = _t(tmpl, "accents", "divider", "width", default=DIVIDER_W)
+    divider_h = _t(tmpl, "accents", "divider", "height", default=DIVIDER_H)
 
-    max_w = width - 2 * PAD_X
+    hl_font = _load_font(hl_size, bold=True)
+    st_font = _load_font(st_size, bold=False)
+    num_font = _load_font(ctr_size, bold=False)
+
+    max_w = width - 2 * pad_x
 
     # Measure block height for bottom-positioning
     hl_lines = _wrap_text(draw, headline, hl_font, max_w) if headline else []
@@ -454,7 +465,7 @@ def _render_image_bg_text(slide: dict, canvas_size: tuple, brand: dict,
 
     hl_h = _lines_height(draw, hl_lines, hl_font, GAP_HL_LINE, GAP_PARA)
     st_h = _lines_height(draw, st_lines, st_font, GAP_BD_LINE, GAP_PARA) if st_lines else 0
-    divider_block = DIVIDER_H + GAP_HL_TO_DIV + GAP_DIV_TO_BD if (hl_lines and st_lines) else 0
+    divider_block = divider_h + GAP_HL_TO_DIV + GAP_DIV_TO_BD if (hl_lines and st_lines) else 0
     total_h = hl_h + divider_block + st_h
 
     # Position text in bottom 38% of slide
@@ -462,31 +473,31 @@ def _render_image_bg_text(slide: dict, canvas_size: tuple, brand: dict,
     y = bottom_zone_start + max(0, (height - PAD_BOTTOM - bottom_zone_start - total_h) // 2)
 
     if hl_lines:
-        y = _draw_lines(draw, hl_lines, PAD_X, y, hl_font,
+        y = _draw_lines(draw, hl_lines, pad_x, y, hl_font,
                         text_color, GAP_HL_LINE, GAP_PARA,
                         align='center', canvas_width=width)
 
     if hl_lines and st_lines:
         y += GAP_HL_TO_DIV
         draw.rectangle(
-            [(width - DIVIDER_W) // 2, y, (width + DIVIDER_W) // 2, y + DIVIDER_H],
+            [(width - divider_w) // 2, y, (width + divider_w) // 2, y + divider_h],
             fill=accent,
         )
-        y += DIVIDER_H + GAP_DIV_TO_BD
+        y += divider_h + GAP_DIV_TO_BD
 
     if st_lines:
-        _draw_lines(draw, st_lines, PAD_X, y, st_font,
+        _draw_lines(draw, st_lines, pad_x, y, st_font,
                     subtext_color, GAP_BD_LINE, GAP_PARA,
                     align='center', canvas_width=width)
 
     # Slide counter
-    if slide_index is not None and slide_total is not None:
+    if ctr_visible and slide_index is not None and slide_total is not None:
         num_text = f"{slide_index:02d}  /  {slide_total:02d}"
         nbbox = draw.textbbox((0, 0), num_text, font=num_font)
         nw = nbbox[2] - nbbox[0]
         nh = nbbox[3] - nbbox[1]
         draw.text(
-            (width - PAD_X - nw, height - PAD_BOTTOM - nh),
+            (width - pad_x - nw, height - PAD_BOTTOM - nh),
             num_text, font=num_font, fill=accent,
         )
 
@@ -495,10 +506,12 @@ def _render_image_bg_text(slide: dict, canvas_size: tuple, brand: dict,
 
 def _render_image_split(slide: dict, canvas_size: tuple, brand: dict,
                          api_key: Optional[str] = None,
-                         slide_index: int = None, slide_total: int = None) -> Image.Image:
+                         slide_index: int = None, slide_total: int = None,
+                         template: Optional[dict] = None) -> Image.Image:
     """
     Image-split layout: AI image on left half, styled text on right.
     """
+    tmpl = template or DEFAULT_TEMPLATE
     width, height = canvas_size
     half_w = width // 2
 
@@ -506,7 +519,15 @@ def _render_image_split(slide: dict, canvas_size: tuple, brand: dict,
     secondary = _hex_to_rgb(brand.get("secondary", FALLBACK_PALETTE["secondary"]))
     accent = _hex_to_rgb(brand.get("accent", FALLBACK_PALETTE["accent"]))
     text_color = _hex_to_rgb(brand["text"])
-    body_color = (200, 200, 220)
+    body_color = _hex_to_rgb(_t(tmpl, "colors", "text_secondary", default="#C8C8DC"))
+
+    accent_left_w = _t(tmpl, "accents", "left_bar", "width", default=ACCENT_LEFT_W)
+    divider_w = _t(tmpl, "accents", "divider", "width", default=DIVIDER_W)
+    divider_h = _t(tmpl, "accents", "divider", "height", default=DIVIDER_H)
+    ctr_size = _t(tmpl, "typography", "counter", "size", default=FONT_SIZE_SLIDE_NUM)
+    ctr_visible = _t(tmpl, "typography", "counter", "visible", default=True)
+    hl_size = _t(tmpl, "typography", "headline", "size", default=FONT_SIZE_HEADLINE_SPLIT)
+    bd_size = _t(tmpl, "typography", "body", "size", default=FONT_SIZE_BODY_SPLIT)
 
     image_prompt = slide.get("image_prompt", "")
     raw_bytes = _fetch_image(image_prompt, DEFAULT_IMAGE_SIZE, api_key)
@@ -520,16 +541,16 @@ def _render_image_split(slide: dict, canvas_size: tuple, brand: dict,
     draw = ImageDraw.Draw(canvas)
 
     # Vertical separator
-    draw.rectangle([half_w, 0, half_w + ACCENT_LEFT_W, height], fill=accent)
+    draw.rectangle([half_w, 0, half_w + accent_left_w, height], fill=accent)
 
     headline = slide.get("headline", "")
     body = slide.get("body") or slide.get("subtext", "")
 
-    hl_font = _load_font(FONT_SIZE_HEADLINE_SPLIT, bold=True)
-    bd_font = _load_font(FONT_SIZE_BODY_SPLIT, bold=False)
-    num_font = _load_font(FONT_SIZE_SLIDE_NUM, bold=False)
+    hl_font = _load_font(hl_size, bold=True)
+    bd_font = _load_font(bd_size, bold=False)
+    num_font = _load_font(ctr_size, bold=False)
 
-    right_x = half_w + ACCENT_LEFT_W + PADDING_SPLIT
+    right_x = half_w + accent_left_w + PADDING_SPLIT
     max_w = width - right_x - PADDING_SPLIT
     y = height // 5
 
@@ -537,15 +558,15 @@ def _render_image_split(slide: dict, canvas_size: tuple, brand: dict,
         hl_lines = _wrap_text(draw, headline, hl_font, max_w)
         y = _draw_lines(draw, hl_lines, right_x, y, hl_font, text_color, GAP_HL_LINE, GAP_PARA)
         y += GAP_HL_TO_DIV
-        draw.rectangle([right_x, y, right_x + DIVIDER_W, y + DIVIDER_H], fill=accent)
-        y += DIVIDER_H + GAP_DIV_TO_BD
+        draw.rectangle([right_x, y, right_x + divider_w, y + divider_h], fill=accent)
+        y += divider_h + GAP_DIV_TO_BD
 
     if body:
         bd_lines = _wrap_text(draw, body, bd_font, max_w)
         _draw_lines(draw, bd_lines, right_x, y, bd_font, body_color, GAP_BD_LINE, GAP_PARA)
 
     # Slide counter
-    if slide_index is not None and slide_total is not None:
+    if ctr_visible and slide_index is not None and slide_total is not None:
         num_text = f"{slide_index:02d}  /  {slide_total:02d}"
         nbbox = draw.textbbox((0, 0), num_text, font=num_font)
         nw = nbbox[2] - nbbox[0]
@@ -581,10 +602,10 @@ def render_slide(slide: dict, out_path: Path, dimensions: dict, brand: dict,
             img = _render_text_only(slide, canvas_size, brand, slide_index, slide_total, template=tmpl)
         elif layout == "image-bg-text":
             img = _render_image_bg_text(slide, canvas_size, brand, api_size, api_key,
-                                         slide_index, slide_total)
+                                         slide_index, slide_total, template=tmpl)
         elif layout == "image-split":
             img = _render_image_split(slide, canvas_size, brand, api_key,
-                                       slide_index, slide_total)
+                                       slide_index, slide_total, template=tmpl)
         else:
             img = _render_text_only(slide, canvas_size, brand, slide_index, slide_total, template=tmpl)
     except Exception as exc:

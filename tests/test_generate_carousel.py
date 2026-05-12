@@ -464,3 +464,27 @@ def test_render_slide_text_only_uses_template_colors(tmp_path):
     img = Image.open(out_path)
     # Border should be red (#FF0000) not default primary
     assert img.getpixel((0, 0)) == (255, 0, 0)
+
+
+@patch("scripts.generate_carousel.openai.OpenAI")
+def test_render_slide_image_bg_uses_template_overlay(mock_openai_cls, tmp_path):
+    """Template overlay alpha changes the image-bg rendering."""
+    mock_client = _make_mock_openai()
+    mock_openai_cls.return_value = mock_client
+
+    slide = {
+        "index": 1, "type": "hook",
+        "headline": "Hook", "subtext": "Sub",
+        "layout": "image-bg-text", "image_prompt": "test",
+    }
+    custom_template = _deep_merge(DEFAULT_TEMPLATE, {
+        "overlay": {"alpha": 200},
+        "colors": {"safe_zone": "#00FF00"},
+    })
+    out_path = tmp_path / "1.png"
+    render_slide(slide, out_path, {"width": 1080, "height": 1080}, FALLBACK_PALETTE,
+                 api_key="test", template=custom_template)
+    img = Image.open(out_path)
+    assert img.size == (1080, 1080)
+    # Green safe zone border
+    assert img.getpixel((0, 0)) == (0, 255, 0)
