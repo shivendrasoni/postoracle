@@ -468,7 +468,14 @@ def test_render_slide_text_only_uses_template_colors(tmp_path):
 
 @patch("scripts.generate_carousel.openai.OpenAI")
 def test_render_slide_image_bg_uses_template_overlay(mock_openai_cls, tmp_path):
-    """Template overlay alpha changes the image-bg rendering."""
+    """Template overlay alpha changes the image-bg rendering.
+
+    The fake PNG background is solid red. At the top-center of the slide (where
+    the bottom-weighted gradient contributes zero additional darkness), the only
+    darkening comes from the base_overlay whose alpha is controlled by
+    template['overlay']['alpha']. A higher alpha produces a darker (lower) red
+    channel, proving the renderer actually read the template value.
+    """
     mock_client = _make_mock_openai()
     mock_openai_cls.return_value = mock_client
 
@@ -477,14 +484,41 @@ def test_render_slide_image_bg_uses_template_overlay(mock_openai_cls, tmp_path):
         "headline": "Hook", "subtext": "Sub",
         "layout": "image-bg-text", "image_prompt": "test",
     }
-    custom_template = _deep_merge(DEFAULT_TEMPLATE, {
+
+    # Render with high overlay alpha (200) → darker image
+    high_alpha_template = _deep_merge(DEFAULT_TEMPLATE, {
         "overlay": {"alpha": 200},
         "colors": {"safe_zone": "#00FF00"},
     })
-    out_path = tmp_path / "1.png"
-    render_slide(slide, out_path, {"width": 1080, "height": 1080}, FALLBACK_PALETTE,
-                 api_key="test", template=custom_template)
-    img = Image.open(out_path)
-    assert img.size == (1080, 1080)
+    out_high = tmp_path / "high.png"
+    render_slide(slide, out_high, {"width": 1080, "height": 1080}, FALLBACK_PALETTE,
+                 api_key="test", template=high_alpha_template)
+
+    # Render with low overlay alpha (50) → lighter image
+    low_alpha_template = _deep_merge(DEFAULT_TEMPLATE, {
+        "overlay": {"alpha": 50},
+        "colors": {"safe_zone": "#00FF00"},
+    })
+    out_low = tmp_path / "low.png"
+    render_slide(slide, out_low, {"width": 1080, "height": 1080}, FALLBACK_PALETTE,
+                 api_key="test", template=low_alpha_template)
+
+    img_high = Image.open(out_high)
+    img_low = Image.open(out_low)
+
+    assert img_high.size == (1080, 1080)
     # Green safe zone border
-    assert img.getpixel((0, 0)) == (0, 255, 0)
+    assert img_high.getpixel((0, 0)) == (0, 255, 0)
+
+    # Sample a pixel near the top-center of the inner content area (well above the
+    # gradient fade zone, so only base_overlay alpha influences darkness).
+    # safe_pad = 80, inner content starts at (80, 80). Sample at row ~120 (top region).
+    sample_x, sample_y = 540, 120
+    r_high = img_high.getpixel((sample_x, sample_y))[0]  # red channel
+    r_low = img_low.getpixel((sample_x, sample_y))[0]
+
+    # Higher alpha overlay should darken the red channel more (lower value).
+    assert r_high < r_low, (
+        f"Expected higher overlay alpha (200) to darken pixel more than alpha=50, "
+        f"but got r_high={r_high}, r_low={r_low}"
+    )
