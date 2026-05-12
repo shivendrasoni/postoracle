@@ -10,7 +10,7 @@ __pycache__/
 .pytest_cache/
 
 # Vault (personal content, brand data, generated outputs)
-vault/
+/vault/
 
 # Legacy output dir
 output/
