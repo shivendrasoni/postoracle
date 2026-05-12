@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import Sidebar from "@/components/sidebar";
+import ScrollToTop from "@/components/scroll-to-top";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const geist = Geist({ subsets: ["latin"] });
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-geist-mono",
+});
 
 export const metadata: Metadata = {
   title: "PostOracle",
@@ -16,12 +21,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.className}>
+    <html lang="en" data-scroll-behavior="smooth" className={`${geist.className} ${geistMono.variable}`}>
       <body>
-        <div className="flex min-h-screen">
+        <div className="relative flex min-h-dvh">
           <Sidebar />
-          <main className="flex-1 p-8" style={{ marginLeft: 220 }}>
-            {children}
+          <ScrollToTop />
+          <main className="relative z-10 flex-1 pl-[260px]">
+            <div className="mx-auto max-w-[1120px] px-10 py-12">
+              {children}
+            </div>
           </main>
         </div>
       </body>

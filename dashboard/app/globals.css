@@ -1,25 +1,71 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
-:root {
-  --bg-primary: #0a0a0f;
-  --bg-secondary: #12121a;
-  --bg-sidebar: #0e0e16;
-  --bg-card: #16161f;
-  --bg-hover: #1e1e2a;
-  --border: #1e1e2a;
-  --text-primary: #e4e4e7;
-  --text-secondary: #a1a1aa;
-  --text-muted: #52525b;
-  --accent: #e94560;
-  --accent-dim: rgba(233, 69, 96, 0.15);
-  --green: #4caf50;
-  --green-dim: rgba(76, 175, 80, 0.15);
-  --yellow: #ffc107;
-  --yellow-dim: rgba(255, 193, 7, 0.15);
+@theme {
+  --font-sans: "Geist", system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", monospace;
+
+  --color-page: #050505;
+  --color-panel: #09090b;
+  --color-surface: #0f0f12;
+  --color-raised: #18181d;
+  --color-edge: rgba(255, 255, 255, 0.06);
+  --color-content: #eeeeef;
+  --color-sub: #87878a;
+  --color-muted: #49494d;
+  --color-faint: #27272b;
+
+  --color-accent: #a78bfa;
+  --color-accent-soft: rgba(167, 139, 250, 0.10);
+  --color-emerald: #34d399;
+  --color-emerald-soft: rgba(52, 211, 153, 0.08);
+  --color-amber: #f59e0b;
+  --color-amber-soft: rgba(245, 158, 11, 0.08);
+  --color-flame: #f97316;
+  --color-flame-soft: rgba(249, 115, 22, 0.08);
+  --color-live: #34d399;
+  --color-live-soft: rgba(52, 211, 153, 0.06);
+  --color-pending: #fbbf24;
+  --color-pending-soft: rgba(251, 191, 36, 0.06);
 }
 
 body {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: system-ui, -apple-system, sans-serif;
+  background-color: var(--color-page);
+  color: var(--color-content);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 50% at 15% 30%, rgba(167, 139, 250, 0.035), transparent),
+    radial-gradient(ellipse 60% 40% at 85% 15%, rgba(52, 211, 153, 0.025), transparent),
+    radial-gradient(ellipse 50% 60% at 55% 85%, rgba(249, 115, 22, 0.015), transparent);
+}
+
+::selection {
+  background-color: rgba(167, 139, 250, 0.25);
+  color: #fff;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.06); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.12); }
+
+@keyframes pulse-live {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.6); }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% center; }
+  to { background-position: 200% center; }
+}
+
