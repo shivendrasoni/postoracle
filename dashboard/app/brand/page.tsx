@@ -15,7 +15,19 @@ export default async function BrandPage() {
   const hasModules = await vaultPathExists("brand/modules");
   const hasCompiled = await vaultPathExists("brand/brand-voice.md");
 
-  if (!hasCompiled && !hasModules) {
+  const hasTemplate = await vaultPathExists("brand/templates/active.yaml");
+  let template: CarouselTemplate | null = null;
+  if (hasTemplate) {
+    try {
+      const raw = await readVaultFile("brand/templates/active.yaml");
+      const yaml = await import("js-yaml");
+      template = yaml.load(raw) as CarouselTemplate;
+    } catch {
+      template = null;
+    }
+  }
+
+  if (!hasCompiled && !hasModules && !template) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <div className="rounded-[2rem] bg-white/[0.02] border border-white/[0.06] p-2">
@@ -63,18 +75,6 @@ export default async function BrandPage() {
 
   const completed = modules.filter((m) => !m.isEmpty).length;
   const progress = modules.length > 0 ? completed / modules.length : 0;
-
-  const hasTemplate = await vaultPathExists("brand/templates/active.yaml");
-  let template: CarouselTemplate | null = null;
-  if (hasTemplate) {
-    try {
-      const raw = await readVaultFile("brand/templates/active.yaml");
-      const yaml = await import("js-yaml");
-      template = yaml.load(raw) as CarouselTemplate;
-    } catch {
-      template = null;
-    }
-  }
 
   return (
     <div>
