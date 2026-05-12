@@ -35,13 +35,6 @@ export interface BrandModule {
   isEmpty: boolean;
 }
 
-export interface AnalyticsReport {
-  filename: string;
-  title: string;
-  generated_at: string;
-  content: string;
-}
-
 export interface CarouselTemplate {
   name: string;
   source: string;

@@ -1,29 +1,14 @@
 import { NextResponse } from "next/server";
-import { readVaultFile, listVaultDir, vaultPathExists } from "@/lib/vault";
-import matter from "gray-matter";
-import type { AnalyticsReport } from "@/lib/types";
+import { readVaultJson, vaultPathExists } from "@/lib/vault";
+import { computeAnalytics } from "@/lib/analytics";
+import type { RegistryEntry } from "@/lib/types";
 
 export async function GET() {
-  const exists = await vaultPathExists("analytics");
+  const exists = await vaultPathExists("content-registry.json");
   if (!exists) {
-    return NextResponse.json([]);
+    return NextResponse.json({ stats: null, contentTypes: [], leaderboard: [], platforms: [], isSparse: true });
   }
 
-  const files = await listVaultDir("analytics");
-  const mdFiles = files.filter((f) => f.name.endsWith(".md"));
-
-  const reports: AnalyticsReport[] = [];
-  for (const file of mdFiles) {
-    const raw = await readVaultFile(`analytics/${file.name}`);
-    const { data, content } = matter(raw);
-    const titleMatch = content.match(/^#\s+(.+)$/m);
-    reports.push({
-      filename: file.name,
-      title: titleMatch ? titleMatch[1] : file.name.replace(".md", ""),
-      generated_at: data.generated_at ?? "",
-      content,
-    });
-  }
-
-  return NextResponse.json(reports);
+  const entries = await readVaultJson<RegistryEntry[]>("content-registry.json");
+  return NextResponse.json(computeAnalytics(entries));
 }
