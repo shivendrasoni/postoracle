@@ -375,3 +375,63 @@ def test_load_brand_md_falls_back_on_malformed_file(tmp_path):
     bad.write_text("not yaml at all ::::", encoding="utf-8")
     result = load_brand(str(bad))
     assert result == dict(FALLBACK_PALETTE)
+
+
+# ---------------------------------------------------------------------------
+# Template loader tests
+# ---------------------------------------------------------------------------
+
+from scripts.generate_carousel import load_template, _t, DEFAULT_TEMPLATE
+
+
+def test_load_template_returns_none_when_no_file(tmp_path):
+    result = load_template(str(tmp_path / "nonexistent"))
+    assert result is None
+
+
+def test_load_template_returns_none_when_vault_root_is_none():
+    result = load_template(None)
+    assert result is None
+
+
+def test_load_template_reads_yaml(tmp_path):
+    templates_dir = tmp_path / "brand" / "templates"
+    templates_dir.mkdir(parents=True)
+    (templates_dir / "active.yaml").write_text(
+        "name: test-template\ncolors:\n  accent: \"#FF0000\"\nspacing:\n  safe_zone_padding: 40\n",
+        encoding="utf-8",
+    )
+    result = load_template(str(tmp_path))
+    assert result is not None
+    assert result["name"] == "test-template"
+    assert result["colors"]["accent"] == "#FF0000"
+    assert result["spacing"]["safe_zone_padding"] == 40
+    # Unspecified values fall back to defaults
+    assert result["colors"]["background_start"] == DEFAULT_TEMPLATE["colors"]["background_start"]
+    assert result["typography"] == DEFAULT_TEMPLATE["typography"]
+
+
+def test_load_template_handles_malformed_yaml(tmp_path):
+    templates_dir = tmp_path / "brand" / "templates"
+    templates_dir.mkdir(parents=True)
+    (templates_dir / "active.yaml").write_text(":::not yaml:::", encoding="utf-8")
+    result = load_template(str(tmp_path))
+    assert result is None
+
+
+def test_t_navigates_nested_dict():
+    d = {"a": {"b": {"c": 42}}}
+    assert _t(d, "a", "b", "c", default=0) == 42
+
+
+def test_t_returns_default_on_missing_key():
+    d = {"a": {"b": 1}}
+    assert _t(d, "a", "x", default=99) == 99
+
+
+def test_t_returns_default_on_empty_dict():
+    assert _t({}, "a", "b", default=5) == 5
+
+
+def test_t_returns_default_on_none_template():
+    assert _t(None, "a", "b", default=42) == 42

@@ -68,6 +68,96 @@ GAP_DIV_TO_BD = 30       # divider bottom → body top
 
 
 # ---------------------------------------------------------------------------
+# Template system
+# ---------------------------------------------------------------------------
+
+DEFAULT_TEMPLATE: dict = {
+    "name": "default",
+    "source": "built-in",
+    "created_at": "",
+    "colors": {
+        "background_start": FALLBACK_PALETTE["primary"],
+        "background_end": FALLBACK_PALETTE["secondary"],
+        "accent": FALLBACK_PALETTE["accent"],
+        "text_primary": FALLBACK_PALETTE["text"],
+        "safe_zone": FALLBACK_PALETTE["primary"],
+    },
+    "typography": {
+        "headline": {"style": "sans-serif-bold", "size": FONT_SIZE_HEADLINE, "case": "none"},
+        "body": {"style": "sans-serif-regular", "size": FONT_SIZE_BODY},
+        "counter": {"style": "sans-serif-regular", "size": FONT_SIZE_SLIDE_NUM, "visible": True, "position": "bottom-right"},
+    },
+    "layout": {
+        "hook_slide": "image-bg-text",
+        "value_slide": "text-only",
+        "cta_slide": "image-bg-text",
+        "text_align": "left",
+    },
+    "spacing": {
+        "safe_zone_padding": SQUARE_SAFE_PAD,
+        "content_padding_x": PAD_X,
+        "content_padding_y": PAD_Y,
+        "element_gap": GAP_PARA,
+    },
+    "accents": {
+        "left_bar": {"width": ACCENT_LEFT_W, "color": "accent"},
+        "top_bar": {"height": ACCENT_TOP_H, "color": "accent"},
+        "divider": {"width": DIVIDER_W, "height": DIVIDER_H, "color": "accent"},
+    },
+    "overlay": {
+        "alpha": OVERLAY_ALPHA,
+        "direction": "bottom",
+    },
+}
+
+
+def _t(template: Optional[dict], *keys, default):
+    """Navigate nested template dict, return default if template is None or any key missing."""
+    if template is None:
+        return default
+    val = template
+    for key in keys:
+        if isinstance(val, dict):
+            val = val.get(key)
+        else:
+            return default
+    return val if val is not None else default
+
+
+def _deep_merge(base: dict, override: dict) -> dict:
+    """Recursively merge override into a copy of base."""
+    import copy
+    result = copy.deepcopy(base)
+    for key, value in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+_TEMPLATE_KNOWN_KEYS = frozenset(DEFAULT_TEMPLATE.keys())
+
+
+def load_template(vault_root: Optional[str] = None) -> Optional[dict]:
+    """Load active carousel template from vault. Returns None if no template exists."""
+    if not vault_root:
+        return None
+    template_path = Path(vault_root) / "brand" / "templates" / "active.yaml"
+    if not template_path.exists():
+        return None
+    try:
+        import yaml
+        raw = yaml.safe_load(template_path.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict) or not (set(raw.keys()) & _TEMPLATE_KNOWN_KEYS):
+            raise ValueError(f"Template file has no recognized keys: {list(raw.keys()) if isinstance(raw, dict) else type(raw)}")
+        return _deep_merge(DEFAULT_TEMPLATE, raw)
+    except Exception as e:
+        print(f"[WARNING] Failed to load template: {e}", file=sys.stderr)
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
