@@ -10,7 +10,7 @@ __pycache__/
 .pytest_cache/
 
 # Vault (personal content, brand data, generated outputs)
-vault/
+/vault/
 
 # Legacy output dir
 output/
@@ -20,3 +20,7 @@ output/
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Dashboard
+dashboard/node_modules/
+dashboard/.next/
