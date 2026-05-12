@@ -466,6 +466,58 @@ def test_render_slide_text_only_uses_template_colors(tmp_path):
     assert img.getpixel((0, 0)) == (255, 0, 0)
 
 
+# ---------------------------------------------------------------------------
+# Task 4: render_all vault_root / template wiring
+# ---------------------------------------------------------------------------
+
+@patch("scripts.generate_carousel.openai.OpenAI")
+def test_render_all_loads_template_from_vault(mock_openai_cls, tmp_path):
+    """render_all uses vault_root to find and apply the active template."""
+    mock_client = _make_mock_openai()
+    mock_openai_cls.return_value = mock_client
+
+    # Create a template with a distinctive safe_zone color
+    vault_root = tmp_path / "vault"
+    templates_dir = vault_root / "brand" / "templates"
+    templates_dir.mkdir(parents=True)
+    (templates_dir / "active.yaml").write_text(
+        'colors:\n  safe_zone: "#0000FF"\n',
+        encoding="utf-8",
+    )
+
+    plan = _make_plan(3)
+    # Make all slides text-only to avoid API calls
+    for s in plan["slides"]:
+        s["layout"] = "text-only"
+        s["image_prompt"] = None
+    plan_file = _write_plan(tmp_path, plan)
+    out_dir = tmp_path / "out"
+
+    render_all(plan_file, out_dir, api_key="test", vault_root=str(vault_root))
+
+    # Check slide 1 has blue border
+    img = Image.open(out_dir / "1.png")
+    assert img.getpixel((0, 0)) == (0, 0, 255)
+
+
+def test_render_all_no_template_preserves_brand_colors(tmp_path):
+    """Without a template file, brand primary drives the safe_zone border."""
+    plan = _make_plan(3)
+    for s in plan["slides"]:
+        s["layout"] = "text-only"
+        s["image_prompt"] = None
+    plan_file = _write_plan(tmp_path, plan)
+    out_dir = tmp_path / "out"
+
+    # No vault_root means no template — brand colors should be untouched
+    render_all(plan_file, out_dir, api_key="test")
+
+    img = Image.open(out_dir / "1.png")
+    # Border pixel should be FALLBACK_PALETTE["primary"]
+    expected = tuple(int(FALLBACK_PALETTE["primary"].lstrip("#")[i:i+2], 16) for i in (0, 2, 4))
+    assert img.getpixel((0, 0)) == expected
+
+
 @patch("scripts.generate_carousel.openai.OpenAI")
 def test_render_slide_image_bg_uses_template_overlay(mock_openai_cls, tmp_path):
     """Template overlay alpha changes the image-bg rendering.

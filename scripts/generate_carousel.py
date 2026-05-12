@@ -658,6 +658,7 @@ def render_all(
     brand_path: Optional[str] = None,
     slide_n: Optional[int] = None,
     api_key: Optional[str] = None,
+    vault_root: Optional[str] = None,
 ) -> None:
     with plan_path.open() as f:
         plan = json.load(f)
@@ -669,6 +670,20 @@ def render_all(
         sys.exit(1)
 
     brand = load_brand(brand_path)
+    template = load_template(vault_root)
+
+    # Template colors override brand colors only when a template file exists
+    if template is not None:
+        tmpl_colors = template.get("colors", {})
+        if "background_start" in tmpl_colors:
+            brand["primary"] = tmpl_colors["background_start"]
+        if "background_end" in tmpl_colors:
+            brand["secondary"] = tmpl_colors["background_end"]
+        if "accent" in tmpl_colors:
+            brand["accent"] = tmpl_colors["accent"]
+        if "text_primary" in tmpl_colors:
+            brand["text"] = tmpl_colors["text_primary"]
+
     dimensions = plan.get("dimensions", {"width": DEFAULT_CANVAS_WIDTH, "height": DEFAULT_CANVAS_WIDTH})
     total = len(slides)
 
@@ -679,13 +694,13 @@ def render_all(
             sys.exit(1)
         out_path = out_dir / f"{slide_n}.png"
         render_slide(target, out_path, dimensions, brand, api_key,
-                     slide_index=slide_n, slide_total=total)
+                     slide_index=slide_n, slide_total=total, template=template)
     else:
         for slide in slides:
             idx = slide.get("index", slides.index(slide) + 1)
             out_path = out_dir / f"{idx}.png"
             render_slide(slide, out_path, dimensions, brand, api_key,
-                         slide_index=idx, slide_total=total)
+                         slide_index=idx, slide_total=total, template=template)
         write_caption(plan, out_dir)
 
 
@@ -705,6 +720,8 @@ def main() -> None:
     parser.add_argument("--brand", default=None, help="Path to CAROUSEL-BRAND.json")
     parser.add_argument("--slide", type=int, default=None, metavar="N",
                         help="Render only slide N (1-indexed)")
+    parser.add_argument("--vault-root", default=None,
+                        help="Path to vault root for loading carousel template")
     args = parser.parse_args()
 
     try:
@@ -714,6 +731,7 @@ def main() -> None:
             brand_path=args.brand,
             slide_n=args.slide,
             api_key=api_key,
+            vault_root=args.vault_root,
         )
     except RuntimeError as exc:
         print(f"[ERROR] {exc}", file=sys.stderr)
