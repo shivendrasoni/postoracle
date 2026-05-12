@@ -31,7 +31,7 @@ After the banner, respond to whatever the user asked. If it's a greeting or open
 | Command | What it does |
 |---------|-------------|
 | `/setup` | First-time setup wizard — deps, API keys, platform connections |
-| `/make-reel <topic>` | Full video pipeline: research → script → HeyGen → b-roll → edit |
+| `/make-reel <topic>` | Video pipeline: research → script → Video Agent (default) or talking head + local edit (`--local-edit`) |
 | `/make-carousel <topic>` | 5–6 branded slide images + caption |
 | `/make-post <topic>` | Single-image post per platform |
 | `/viral-angle <topic>` | Generate scored content angles (Contrast Formula) |
@@ -72,6 +72,7 @@ User → Slash Command → Pipeline Stages → Output
 | `scripts/registry.py` | Content registry (JSON-backed tracking) |
 | `scripts/parse_angle.py` | Angle file parser (YAML frontmatter) |
 | `scripts/parse_script.py` | Script file → beats JSON parser |
+| `scripts/heygen_basic_video.py` | Basic HeyGen v2 talking-head generator (for `--local-edit` mode) |
 | `scripts/fetch_broll.py` | Pexels video/photo fetcher for b-roll |
 | `scripts/fetch_images.py` | Stock image fetcher (Pexels/Pixabay) |
 | `scripts/fetch_sfx.py` | Sound effects fetcher |

@@ -1,12 +1,18 @@
 ---
-description: Generate a portrait short-form video from a URL or topic (research → script → HeyGen → b-roll → edit).
-argument-hint: "<url-or-topic> [--duration 30|45|60] [--style punchy|deep-dive]"
+description: "Generate a portrait short-form video from a URL or topic. Default: Video Agent (fully edited). --local-edit: talking head + local b-roll/editing."
+argument-hint: "<url-or-topic> [--duration 30|45|60] [--style punchy|deep-dive] [--local-edit]"
 allowed-tools: Bash, Read, Write, WebFetch, WebSearch
 ---
 
 # /make-reel Pipeline
 
-Orchestrate the content creation pipeline below. Work sequentially. Stop and report clearly if any stage fails. Never skip a stage unless it is explicitly marked conditional.
+Two modes:
+- **Default (Video Agent):** Research → Script → HeyGen Video Agent v3 → finished video. Video Agent handles b-roll, transitions, motion graphics, and pacing. No post-processing needed. ~$2/min.
+- **`--local-edit`:** Research → Script → basic HeyGen talking head → fetch b-roll → local video editing. You control every cut. ~$0.50–1/min for the video + local compute for editing.
+
+Work sequentially. Stop and report clearly if any stage fails. Never skip a stage unless explicitly marked conditional.
+
+---
 
 ## 0. Parse Arguments & Load Environment
 
@@ -14,9 +20,10 @@ Parse `$ARGUMENTS`:
 - `url-or-topic` — everything before any `--` flags (required UNLESS --from-angle or --from-script is set)
 - `--duration N` — default `45` (seconds)
 - `--style punchy|deep-dive` — default `punchy`
+- `--local-edit` — optional; use basic HeyGen video + local editing pipeline instead of Video Agent
 - `--auto-publish instagram|linkedin|all` — optional; if present, publish after pipeline completes. Store in `$AUTO_PUBLISH`.
 - `--from-angle <path>` — optional; path to a vault angle file. Skips Stage 1 (Research). The angle's contrast, talking_points, and hook_pattern replace research context.
-- `--from-script <path>` — optional; path to a vault script file. Skips Stage 1 (Research) AND Stage 2 (Script). Pipeline starts at Stage 3 (HeyGen Video). Script must contain timecodes and `[Visual: ...]` cues.
+- `--from-script <path>` — optional; path to a vault script file. Skips Stage 1 (Research) AND Stage 2 (Script). Pipeline starts at Stage 3 (Video). Script must contain timecodes and `[Visual: ...]` cues.
 
 If `--from-angle` is set, `url-or-topic` is not required (topic comes from the angle file).
 If `--from-script` is set, `url-or-topic`, `--duration`, and `--style` are ignored.
@@ -119,7 +126,7 @@ Inject the contents of each found module into the script generation context for 
 - `style.md` → tone, vocabulary, opener patterns to apply (and anti-patterns to avoid)
 - `cta.md` → CTA line to append at the end of the script (use `platforms.instagram.primary` or `default`)
 - `niche.md` → audience persona and transformation for relevance filtering
-- `watermark.md` → stored spec for video post-processing step
+- `watermark.md` → stored spec for video post-processing step (only used in `--local-edit` mode)
 
 ## 2. Stage 1 — Research
 
@@ -134,7 +141,7 @@ Inject the contents of each found module into the script generation context for 
 - Use `WebFetch` on the 2 most relevant URLs
 - Summarize into `$SESSION_DIR/research.md` (~300 words)
 
-Write `research.md`. Log: `✓ Stage 1 complete`
+Write `research.md`. Log: `✓ Research complete`
 
 ## 3. Stage 2 — Script
 
@@ -155,21 +162,73 @@ Save the full output (timecodes + visual cues + CTA) to `$SESSION_DIR/script.md`
 
 Validate: `script.md` must contain at least one `(M:SS)` timecode and at least one `[Visual: ...]` line. If missing, regenerate once. If still invalid after one retry, stop and report.
 
-Log: `✓ Stage 2 complete`
+Log: `✓ Script complete`
 
-## 4. Stage 3 — HeyGen Video
+---
 
-Invoke the `heygen-video` skill. Pass:
-- Avatar: read `avatar_id` and `voice_id` from `$SESSION_DIR/AVATAR-USER.md`
-- Script: full contents of `$SESSION_DIR/script.md` (scene-labeled, script-as-prompt)
-- Format: portrait `1080×1920`
-- Duration target: `--duration` seconds
+## 4. Stage 3 — Video Generation (BRANCH POINT)
 
-Save output to `$SESSION_DIR/heygen_video.mp4`.
+Read avatar config from `$SESSION_DIR/AVATAR-USER.md`. Extract `Group ID` and `Voice ID` from the HeyGen section.
 
-Log: `✓ Stage 3 complete`
+**If `--local-edit` is NOT set → go to Stage 4A (Video Agent).**
+**If `--local-edit` IS set → go to Stage 4B (Basic Video + Local Edit).**
 
-## 5. Stage 4 — Asset Fetch
+---
+
+### 4A. Video Agent Mode (default)
+
+Video Agent v3 produces a fully edited video — b-roll, transitions, motion graphics, pacing. No post-processing needed.
+
+Invoke the `heygen-video` skill in **Enhanced Prompt** mode. Pass:
+
+1. **Avatar:** `avatar_id` (resolved from group_id) and `voice_id` from AVATAR-USER.md
+2. **Script:** Full contents of `$SESSION_DIR/script.md`
+3. **Orientation:** portrait (`9:16`)
+4. **Duration target:** `--duration` seconds
+5. **Visual style direction:** If `style.md` was loaded, include brand colors, tone, and visual preferences. Otherwise use:
+   ```
+   Use minimal, clean styled visuals. Blue, black, and white as main colors.
+   Leverage motion graphics as B-rolls and A-roll overlays. Use AI videos when necessary.
+   When real-world footage is needed, use Stock Media.
+   Include an intro sequence, outro sequence, and chapter breaks using Motion Graphics.
+   ```
+6. **Research context:** If `$SESSION_DIR/research.md` exists, include key facts and stats so Video Agent can create better visual representations of the data.
+
+The heygen-video skill handles Frame Check, Prompt Craft, and Generate internally. Wait for the video to complete.
+
+Save the final video directly as `$SESSION_DIR/final.mp4`.
+
+Log: `✓ Video Agent complete`
+
+**Skip to Stage 5 (Caption).**
+
+---
+
+### 4B. Local Edit Mode (`--local-edit`)
+
+Generate a basic talking-head video (no editing), then build the final video locally with b-roll overlays and subtitles.
+
+#### 4B.1. Basic HeyGen Video (talking head only)
+
+Resolve the avatar look_id from the group_id using the heygen-video skill's avatar resolution flow (list looks → pick matching orientation).
+
+Extract clean spoken text from the script and generate a talking-head video via the v2 API:
+
+```bash
+python3 scripts/heygen_basic_video.py \
+  --script-file "$SESSION_DIR/script.md" \
+  --avatar-id "$LOOK_ID" \
+  --voice-id "$VOICE_ID" \
+  --output-path "$SESSION_DIR/heygen_video.mp4" \
+  --width 1080 --height 1920 \
+  --timeout 1800
+```
+
+If exit code is non-zero, stop and report the error.
+
+Log: `✓ Talking head video complete`
+
+#### 4B.2. Asset Fetch
 
 Parse beats from the script:
 ```bash
@@ -180,7 +239,6 @@ For each beat in `beats.json`, fetch b-roll and SFX. Read `beat_slug`, `visual_c
 
 **B-roll per beat (Pexels video → Pexels photo → OpenAI image):**
 ```bash
-# Pexels (handles video + photo fallback internally)
 python3 scripts/fetch_broll.py "$VISUAL_CUE" "$SESSION_DIR/broll" "$BEAT_SLUG" \
   || python3 scripts/fetch_images.py "$VISUAL_CUE portrait photo" "$SESSION_DIR/broll/$BEAT_SLUG.png"
 ```
@@ -201,9 +259,9 @@ python3 scripts/build_manifest.py \
   "$SESSION_DIR/asset_manifest.json"
 ```
 
-Log: `✓ Stage 4 complete`
+Log: `✓ Assets fetched`
 
-## 6. Stage 5 — Edit
+#### 4B.3. Edit
 
 Invoke the `video-use` skill with this exact brief:
 
@@ -220,7 +278,11 @@ After edit completes:
 ln -sf "$SESSION_DIR/edit/final.mp4" "$SESSION_DIR/final.mp4"
 ```
 
-## 6.3. Stage 5.5 — Caption
+Log: `✓ Edit complete`
+
+---
+
+## 5. Caption
 
 Generate the social post caption from the script and write `$SESSION_DIR/caption.md`.
 
@@ -257,9 +319,9 @@ Rules:
 - Use the CTA from `cta.md` (`platforms.instagram.primary` → fallback to `default`) if the module was loaded; otherwise derive a CTA from the script's closing beat
 - Hashtags: mix broad (#contentcreator) + niche + topic-specific tags
 
-Log: `✓ Stage 5.5 complete`
+Log: `✓ Caption complete`
 
-## 6.5. Log Pipeline Run
+## 6. Log Pipeline Run
 
 ```bash
 LOG_FILE="$(pwd)/vault/logs/pipeline-log.md"
@@ -269,18 +331,22 @@ BRAND_LOADED="none"
 [ -f "$VAULT_CTA" ] && BRAND_LOADED="$BRAND_LOADED,cta"
 [ -f "$VAULT_NICHE" ] && BRAND_LOADED="$BRAND_LOADED,niche"
 
+MODE="video-agent"
+[ "$LOCAL_EDIT" = true ] && MODE="local-edit"
+
 cat >> "$LOG_FILE" << EOF
 
-## $TIMESTAMP — make-reel
+## $TIMESTAMP — make-reel ($MODE)
 - topic: $TOPIC
 - duration: $DURATION
 - style: $STYLE
+- mode: $MODE
 - brand modules: $BRAND_LOADED
 - output: $SESSION_DIR/final.mp4
 EOF
 ```
 
-## 6.6. Register Content
+## 6.5. Register Content
 
 ```bash
 python3 -c "
@@ -317,7 +383,7 @@ except ValueError:
 "
 ```
 
-## 6.7. Stage 6 — Publish (conditional)
+## 6.7. Publish (conditional)
 
 Runs only if `--auto-publish` was present in `$ARGUMENTS`. Parse the value that follows `--auto-publish` as `$AUTO_PUBLISH`.
 
@@ -336,6 +402,7 @@ If the publish step ran, append a `Published:` line to the done report.
 Report to user:
 ```
 ✓ /make-reel complete
+Mode: $MODE
 Session: $SESSION_DIR
 Final video: $SESSION_DIR/final.mp4
 Caption: $SESSION_DIR/caption.md
