@@ -139,17 +139,37 @@ def _instagram_post(session_dir: Path, caption: str, config: dict) -> dict:
     })
 
 
+_linkedin_author_cache: Optional[str] = None
+
+
+def _linkedin_get_author() -> str:
+    global _linkedin_author_cache
+    if _linkedin_author_cache:
+        return _linkedin_author_cache
+    result = _composio_call_raw("LINKEDIN_GET_MY_INFO", {})
+    if not result.get("successful"):
+        raise PublishError(f"Could not get LinkedIn author: {result.get('error')}")
+    person_id = result.get("data", {}).get("id")
+    if not person_id:
+        raise PublishError("LinkedIn GET_MY_INFO returned no id")
+    _linkedin_author_cache = f"urn:li:person:{person_id}"
+    return _linkedin_author_cache
+
+
 def _linkedin_post(session_dir: Path, caption: str, config: dict) -> dict:
+    author = _linkedin_get_author()
+    payload = {"author": author, "commentary": caption, "visibility": "PUBLIC"}
     image_path = session_dir / "image-linkedin.png"
-    payload = {"commentary": caption, "visibility": "PUBLIC"}
     if image_path.exists():
         payload["images"] = [str(image_path)]
-    return _composio_call_parsed("LINKEDIN_CREATE_LINKED_IN_POST", payload)
+    return _linkedin_publish_and_resolve(payload)
 
 
 def _linkedin_carousel(session_dir: Path, caption: str, config: dict) -> dict:
+    author = _linkedin_get_author()
     image_paths = sorted(str(p) for p in session_dir.glob("*.png") if p.name[0].isdigit())
-    return _composio_call_parsed("LINKEDIN_CREATE_LINKED_IN_POST", {
+    return _linkedin_publish_and_resolve({
+        "author": author,
         "images": image_paths,
         "commentary": caption,
         "visibility": "PUBLIC",
@@ -157,10 +177,29 @@ def _linkedin_carousel(session_dir: Path, caption: str, config: dict) -> dict:
 
 
 def _linkedin_reel(session_dir: Path, caption: str, config: dict) -> dict:
-    return _composio_call_parsed("LINKEDIN_CREATE_LINKED_IN_POST", {
+    author = _linkedin_get_author()
+    return _linkedin_publish_and_resolve({
+        "author": author,
         "commentary": caption,
         "visibility": "PUBLIC",
     })
+
+
+def _linkedin_publish_and_resolve(payload: dict) -> dict:
+    raw = _composio_call_raw("LINKEDIN_CREATE_LINKED_IN_POST", payload)
+    if not raw.get("successful"):
+        err = raw.get("error") or "unknown error"
+        return {"success": False, "url": None, "error": err}
+    data = raw.get("data", {})
+    post_id = data.get("id") or ""
+    activity_match = re.search(r"activity:(\d+)", post_id) or re.search(r"share:(\d+)", post_id) or re.search(r"ugcPost:(\d+)", post_id)
+    if activity_match:
+        url = f"https://www.linkedin.com/feed/update/{post_id}"
+    else:
+        url_str = json.dumps(data)
+        url_match = re.search(r"https?://[^\s\"']+", url_str)
+        url = url_match.group(0) if url_match else None
+    return {"success": True, "url": url, "error": None}
 
 
 def _x_post(session_dir: Path, caption: str, config: dict) -> dict:
