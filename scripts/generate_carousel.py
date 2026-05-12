@@ -323,7 +323,8 @@ def _fetch_image(prompt: str, size: str, api_key: Optional[str] = None) -> bytes
 
 
 def _render_text_only(slide: dict, dimensions: tuple, brand: dict,
-                      slide_index: int = None, slide_total: int = None) -> Image.Image:
+                      slide_index: int = None, slide_total: int = None,
+                      template: Optional[dict] = None) -> Image.Image:
     """
     Modern editorial layout:
     - Gradient background (primary → secondary)
@@ -331,34 +332,46 @@ def _render_text_only(slide: dict, dimensions: tuple, brand: dict,
     - Left-aligned headline → accent divider → left-aligned body
     - Slide counter bottom-right
     """
+    tmpl = template or DEFAULT_TEMPLATE
     width, height = dimensions
     primary = _hex_to_rgb(brand.get("primary", FALLBACK_PALETTE["primary"]))
     secondary = _hex_to_rgb(brand.get("secondary", FALLBACK_PALETTE["secondary"]))
     accent = _hex_to_rgb(brand.get("accent", FALLBACK_PALETTE["accent"]))
     text_color = _hex_to_rgb(brand["text"])
-    body_color = (200, 200, 220)  # slightly muted for hierarchy
+    body_color = _hex_to_rgb(_t(tmpl, "colors", "text_secondary", default="#C8C8DC"))
 
     canvas = Image.new("RGB", (width, height))
     _fill_gradient(canvas, primary, secondary)
     draw = ImageDraw.Draw(canvas)
 
+    accent_top_h = _t(tmpl, "accents", "top_bar", "height", default=ACCENT_TOP_H)
+    accent_left_w = _t(tmpl, "accents", "left_bar", "width", default=ACCENT_LEFT_W)
+    pad_x = _t(tmpl, "spacing", "content_padding_x", default=PAD_X)
+    pad_y = _t(tmpl, "spacing", "content_padding_y", default=PAD_Y)
+    divider_w = _t(tmpl, "accents", "divider", "width", default=DIVIDER_W)
+    divider_h = _t(tmpl, "accents", "divider", "height", default=DIVIDER_H)
+    hl_size = _t(tmpl, "typography", "headline", "size", default=FONT_SIZE_HEADLINE)
+    bd_size = _t(tmpl, "typography", "body", "size", default=FONT_SIZE_BODY)
+    ctr_size = _t(tmpl, "typography", "counter", "size", default=FONT_SIZE_SLIDE_NUM)
+    ctr_visible = _t(tmpl, "typography", "counter", "visible", default=True)
+
     # Top accent bar
-    draw.rectangle([0, 0, width, ACCENT_TOP_H], fill=accent)
+    draw.rectangle([0, 0, width, accent_top_h], fill=accent)
     # Left accent bar
-    draw.rectangle([0, 0, ACCENT_LEFT_W, height], fill=accent)
+    draw.rectangle([0, 0, accent_left_w, height], fill=accent)
 
     # Content area starts here
-    text_x = ACCENT_LEFT_W + PAD_X
-    max_w = width - text_x - PAD_X
+    text_x = accent_left_w + pad_x
+    max_w = width - text_x - pad_x
 
     headline = slide.get("headline", "")
     body = slide.get("body") or slide.get("subtext", "")
 
-    hl_font = _load_font(FONT_SIZE_HEADLINE, bold=True)
-    bd_font = _load_font(FONT_SIZE_BODY, bold=False)
-    num_font = _load_font(FONT_SIZE_SLIDE_NUM, bold=False)
+    hl_font = _load_font(hl_size, bold=True)
+    bd_font = _load_font(bd_size, bold=False)
+    num_font = _load_font(ctr_size, bold=False)
 
-    y = PAD_Y + ACCENT_TOP_H
+    y = pad_y + accent_top_h
 
     # Headline
     if headline:
@@ -368,8 +381,8 @@ def _render_text_only(slide: dict, dimensions: tuple, brand: dict,
 
     # Accent divider
     y += GAP_HL_TO_DIV
-    draw.rectangle([text_x, y, text_x + DIVIDER_W, y + DIVIDER_H], fill=accent)
-    y += DIVIDER_H + GAP_DIV_TO_BD
+    draw.rectangle([text_x, y, text_x + divider_w, y + divider_h], fill=accent)
+    y += divider_h + GAP_DIV_TO_BD
 
     # Body
     if body:
@@ -378,13 +391,13 @@ def _render_text_only(slide: dict, dimensions: tuple, brand: dict,
                     body_color, GAP_BD_LINE, GAP_PARA)
 
     # Slide counter: "02 / 05"
-    if slide_index is not None and slide_total is not None:
+    if ctr_visible and slide_index is not None and slide_total is not None:
         num_text = f"{slide_index:02d}  /  {slide_total:02d}"
         nbbox = draw.textbbox((0, 0), num_text, font=num_font)
         nw = nbbox[2] - nbbox[0]
         nh = nbbox[3] - nbbox[1]
         draw.text(
-            (width - PAD_X - nw, height - PAD_BOTTOM - nh),
+            (width - pad_x - nw, height - PAD_BOTTOM - nh),
             num_text, font=num_font, fill=accent,
         )
 
@@ -547,12 +560,15 @@ def _render_image_split(slide: dict, canvas_size: tuple, brand: dict,
 
 def render_slide(slide: dict, out_path: Path, dimensions: dict, brand: dict,
                  api_key: Optional[str] = None,
-                 slide_index: int = None, slide_total: int = None) -> Path:
+                 slide_index: int = None, slide_total: int = None,
+                 template: Optional[dict] = None) -> Path:
+    tmpl = template or DEFAULT_TEMPLATE
     width = dimensions.get("width", DEFAULT_CANVAS_WIDTH)
     height = dimensions.get("height", DEFAULT_CANVAS_WIDTH)
     # Render content at inner size so the output has a safe-zone border on all sides
-    inner_w = width - 2 * SQUARE_SAFE_PAD
-    inner_h = height - 2 * SQUARE_SAFE_PAD
+    safe_pad = _t(tmpl, "spacing", "safe_zone_padding", default=SQUARE_SAFE_PAD)
+    inner_w = width - 2 * safe_pad
+    inner_h = height - 2 * safe_pad
     canvas_size = (inner_w, inner_h)
 
     layout = slide.get("layout", "text-only")
@@ -562,7 +578,7 @@ def render_slide(slide: dict, out_path: Path, dimensions: dict, brand: dict,
 
     try:
         if layout == "text-only" or not image_prompt:
-            img = _render_text_only(slide, canvas_size, brand, slide_index, slide_total)
+            img = _render_text_only(slide, canvas_size, brand, slide_index, slide_total, template=tmpl)
         elif layout == "image-bg-text":
             img = _render_image_bg_text(slide, canvas_size, brand, api_size, api_key,
                                          slide_index, slide_total)
@@ -570,7 +586,7 @@ def render_slide(slide: dict, out_path: Path, dimensions: dict, brand: dict,
             img = _render_image_split(slide, canvas_size, brand, api_key,
                                        slide_index, slide_total)
         else:
-            img = _render_text_only(slide, canvas_size, brand, slide_index, slide_total)
+            img = _render_text_only(slide, canvas_size, brand, slide_index, slide_total, template=tmpl)
     except Exception as exc:
         if layout in ("image-bg-text", "image-split"):
             print(
@@ -578,14 +594,16 @@ def render_slide(slide: dict, out_path: Path, dimensions: dict, brand: dict,
                 "falling back to text-only",
                 file=sys.stderr,
             )
-            img = _render_text_only(slide, canvas_size, brand, slide_index, slide_total)
+            img = _render_text_only(slide, canvas_size, brand, slide_index, slide_total, template=tmpl)
         else:
             raise
 
-    # Compose inner content onto full-size canvas with brand-color border
-    primary_rgb = _hex_to_rgb(brand.get("primary", FALLBACK_PALETTE["primary"]))
-    full_canvas = Image.new("RGB", (width, height), primary_rgb)
-    full_canvas.paste(img, (SQUARE_SAFE_PAD, SQUARE_SAFE_PAD))
+    # Compose inner content onto full-size canvas with safe-zone border
+    # IMPORTANT: use raw `template` (not `tmpl`) so None falls back to brand_primary (backward compat)
+    brand_primary = brand.get("primary", FALLBACK_PALETTE["primary"])
+    safe_zone_color = _hex_to_rgb(_t(template, "colors", "safe_zone", default=brand_primary))
+    full_canvas = Image.new("RGB", (width, height), safe_zone_color)
+    full_canvas.paste(img, (safe_pad, safe_pad))
     img = full_canvas
 
     out_path.parent.mkdir(parents=True, exist_ok=True)

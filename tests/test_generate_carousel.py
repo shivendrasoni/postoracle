@@ -435,3 +435,32 @@ def test_t_returns_default_on_empty_dict():
 
 def test_t_returns_default_on_none_template():
     assert _t(None, "a", "b", default=42) == 42
+
+
+# ---------------------------------------------------------------------------
+# Template-aware rendering
+# ---------------------------------------------------------------------------
+
+from scripts.generate_carousel import _deep_merge
+
+
+def test_render_slide_text_only_uses_template_colors(tmp_path):
+    """When a template specifies a different safe_zone color, the border pixels change."""
+    slide = {
+        "index": 2, "type": "value",
+        "headline": "Template Test", "body": "Body text",
+        "layout": "text-only", "image_prompt": None,
+    }
+    custom_template = _deep_merge(DEFAULT_TEMPLATE, {
+        "colors": {
+            "background_start": "#FF0000",
+            "safe_zone": "#FF0000",
+        },
+    })
+    out_path = tmp_path / "2.png"
+    brand = dict(FALLBACK_PALETTE)
+    render_slide(slide, out_path, {"width": 1080, "height": 1080}, brand,
+                 template=custom_template)
+    img = Image.open(out_path)
+    # Border should be red (#FF0000) not default primary
+    assert img.getpixel((0, 0)) == (255, 0, 0)
