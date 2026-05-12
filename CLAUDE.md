@@ -44,6 +44,14 @@ After the banner, respond to whatever the user asked. If it's a greeting or open
 | `/publish` | Push content to Instagram, LinkedIn, X |
 | `/add-platform <name>` | Scaffold a new publishing platform |
 
+## Dashboard
+
+Local web dashboard for viewing content, analytics, and brand profile:
+
+```bash
+cd dashboard && npm run dev    # http://localhost:3000
+```
+
 ## Architecture
 
 ```
