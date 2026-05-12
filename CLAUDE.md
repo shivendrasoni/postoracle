@@ -21,6 +21,7 @@ On the first user message of every conversation, display this banner before resp
   /make-post       Single-image post
   /viral-angle     Content angle generator
   /brand-voice     Brand identity builder
+  /analytics       Performance analytics
   /publish         Push to social platforms
 ```
 
@@ -39,6 +40,7 @@ After the banner, respond to whatever the user asked. If it's a greeting or open
 | `/brand-voice` | Interactive brand identity builder (11 modules) |
 | `/heygen-avatar` | Create HeyGen digital twin |
 | `/heygen-video <topic>` | Standalone HeyGen presenter video |
+| `/analytics` | Pull IG + LI metrics, vault dashboards, performance insights |
 | `/publish` | Push content to Instagram, LinkedIn, X |
 | `/add-platform <name>` | Scaffold a new publishing platform |
 
@@ -69,6 +71,7 @@ User → Slash Command → Pipeline Stages → Output
 | `scripts/generate_carousel.py` | Pillow + OpenAI slide renderer |
 | `scripts/generate_post.py` | Single-image post generator (GPT-image-2) |
 | `scripts/brand_voice.py` | Brand module read/write/compile/status CLI |
+| `scripts/analytics.py` | IG + LinkedIn analytics via Composio, performance scoring |
 | `scripts/registry.py` | Content registry (JSON-backed tracking) |
 | `scripts/parse_angle.py` | Angle file parser (YAML frontmatter) |
 | `scripts/parse_script.py` | Script file → beats JSON parser |

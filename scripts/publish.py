@@ -70,7 +70,7 @@ def _instagram_create_and_publish(payload: dict) -> dict:
         except Exception:
             pass
 
-    return {"success": True, "url": permalink, "error": None}
+    return {"success": True, "url": permalink, "ig_media_id": ig_media_id, "error": None}
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +129,7 @@ def _instagram_carousel(session_dir: Path, caption: str, config: dict) -> dict:
         except Exception:
             pass
 
-    return {"success": True, "url": permalink, "error": None}
+    return {"success": True, "url": permalink, "ig_media_id": ig_media_id, "error": None}
 
 
 def _instagram_post(session_dir: Path, caption: str, config: dict) -> dict:
@@ -347,6 +347,7 @@ def _update_registry(session_dir: Path, platforms: list[str], results: dict) -> 
             return
         published_at = dict(entry.get("published_at") or {})
         published_urls = dict(entry.get("published_urls") or {})
+        published_media_ids = dict(entry.get("published_media_ids") or {})
         now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
         for p in platforms:
             r = results.get(p, {})
@@ -354,6 +355,8 @@ def _update_registry(session_dir: Path, platforms: list[str], results: dict) -> 
                 published_at[p] = now
                 if r.get("url"):
                     published_urls[p] = r["url"]
+                if r.get("ig_media_id"):
+                    published_media_ids["instagram"] = r["ig_media_id"]
         target_platforms = set(entry.get("platforms", []))
         published_platforms = set(published_at.keys())
         status = "published" if target_platforms <= published_platforms else entry.get("status", "draft")
@@ -361,6 +364,7 @@ def _update_registry(session_dir: Path, platforms: list[str], results: dict) -> 
             "status": status,
             "published_at": published_at,
             "published_urls": published_urls,
+            "published_media_ids": published_media_ids,
         })
     except Exception:
         pass

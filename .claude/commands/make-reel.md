@@ -109,11 +109,12 @@ VAULT_STYLE="$VAULT_DIR/brand/modules/style.md"
 VAULT_CTA="$VAULT_DIR/brand/modules/cta.md"
 VAULT_NICHE="$VAULT_DIR/brand/modules/niche.md"
 VAULT_WATERMARK="$VAULT_DIR/brand/modules/watermark.md"
+VAULT_PERFORMANCE="$VAULT_DIR/brand/modules/performance.md"
 ```
 
 For each file that exists, read it:
 ```bash
-for MODULE_PATH in "$VAULT_STYLE" "$VAULT_CTA" "$VAULT_NICHE" "$VAULT_WATERMARK"; do
+for MODULE_PATH in "$VAULT_STYLE" "$VAULT_CTA" "$VAULT_NICHE" "$VAULT_WATERMARK" "$VAULT_PERFORMANCE"; do
   if [ -f "$MODULE_PATH" ]; then
     echo "Loaded: $MODULE_PATH"
   else
@@ -127,6 +128,7 @@ Inject the contents of each found module into the script generation context for 
 - `cta.md` → CTA line to append at the end of the script (use `platforms.instagram.primary` or `default`)
 - `niche.md` → audience persona and transformation for relevance filtering
 - `watermark.md` → stored spec for video post-processing step (only used in `--local-edit` mode)
+- `performance.md` → data-driven insights on what content types and hooks perform best (from `/analytics --insights`)
 
 ## 2. Stage 1 — Research
 
