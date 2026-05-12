@@ -306,7 +306,23 @@ Write `$SESSION_DIR/caption.md` in this exact format:
 
 <CTA line>
 
+<save/share prompt — 1 sentence>
+
 <hashtags — 10–15 relevant tags>
+
+---
+
+## LinkedIn Caption
+
+<hook line — same opening hook, adapted for LinkedIn's professional tone>
+
+<paragraph 1 (3-4 sentences): set up the problem or common belief. Use the script's context/setup beats. Write in first person, conversational but professional.>
+
+<paragraph 2 (3-4 sentences): deliver the insight, stats, or mechanism. Draw from the script's core argument. Include specific numbers.>
+
+<paragraph 3 (2-3 sentences): the conclusion or call to action. End with the CTA adapted for LinkedIn (e.g., "Comment [keyword] and I'll send you..." or "DM me [keyword] for..."). No hashtags in the body.>
+
+<3-5 hashtags on a final line — LinkedIn-appropriate, no more than 5>
 
 ---
 
@@ -316,10 +332,13 @@ Write `$SESSION_DIR/caption.md` in this exact format:
 ```
 
 Rules:
-- The post caption must be self-contained — readable without watching the video
-- Hook line must match or closely echo the script's opening hook
+- The Post Caption (Instagram) must be self-contained, punchy, and hashtag-rich
+- The LinkedIn Caption must be 2-3 full paragraphs — narrative, professional, no bullet arrows or emoji
+- LinkedIn tone: first-person storytelling, data-backed, no hashtag spam (max 5 at the end)
+- Hook line must match or closely echo the script's opening hook on both platforms
 - Use the CTA from `cta.md` (`platforms.instagram.primary` → fallback to `default`) if the module was loaded; otherwise derive a CTA from the script's closing beat
-- Hashtags: mix broad (#contentcreator) + niche + topic-specific tags
+- Instagram hashtags: mix broad (#contentcreator) + niche + topic-specific tags (10-15)
+- LinkedIn hashtags: 3-5 professional tags only
 
 Log: `✓ Caption complete`
 

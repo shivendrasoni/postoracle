@@ -260,6 +260,11 @@ def extract_caption(session_dir: Path, content_type: str, platform: Optional[str
     text = caption_path.read_text()
 
     if content_type == "reel":
+        platform_section = {"linkedin": "LinkedIn Caption", "x": "X Caption"}.get(platform)
+        if platform_section:
+            match = re.search(rf"## {platform_section}\s*\n(.*?)(?:\n---|\n##|\Z)", text, re.DOTALL)
+            if match:
+                return match.group(1).strip()
         match = re.search(r"## Post Caption\s*\n(.*?)(?:\n---|\n##|\Z)", text, re.DOTALL)
         if not match:
             raise PublishError(f"## Post Caption section not found in {caption_path}")
