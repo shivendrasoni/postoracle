@@ -10,6 +10,8 @@ import FileTree from "@/components/file-tree";
 import MarkdownViewer from "@/components/markdown-viewer";
 import AnimateIn from "@/components/animate-in";
 import Link from "next/link";
+import { detectSession } from "@/lib/detect-session";
+import PreviewToggle from "@/components/preview-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -58,12 +60,15 @@ export default async function VaultPage({ params }: VaultPageProps) {
 
   if (stat.isDirectory()) {
     const tree = await buildFileTree(reqPath || ".", 2);
+    const fileNames = tree.map((f) => f.name);
+    const session = reqPath.startsWith("outputs/") ? detectSession(fileNames) : null;
+
     return (
       <div>
         <AnimateIn>
           <div className="mb-6">
             <span className="rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.2em] font-medium bg-amber-soft text-amber">
-              Files
+              {session ? session.type : "Files"}
             </span>
             <h1 className="text-2xl font-semibold tracking-tight text-content mt-3">
               Vault
@@ -74,7 +79,13 @@ export default async function VaultPage({ params }: VaultPageProps) {
         <AnimateIn delay={100}>
           <div className="rounded-[1.5rem] bg-white/[0.02] border border-white/[0.06] p-1.5">
             <div className="rounded-[calc(1.5rem-0.375rem)] bg-surface/60 p-4 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]">
-              {tree.length === 0 ? (
+              {session ? (
+                <PreviewToggle
+                  sessionPath={reqPath}
+                  session={session}
+                  files={tree}
+                />
+              ) : tree.length === 0 ? (
                 <p className="text-[13px] text-muted py-8 text-center">
                   Empty directory
                 </p>
