@@ -7,7 +7,7 @@ import matter from "gray-matter";
 import MarkdownViewer from "@/components/markdown-viewer";
 import ProgressRing from "@/components/progress-ring";
 import AnimateIn from "@/components/animate-in";
-import type { BrandModule } from "@/lib/types";
+import type { BrandModule, CarouselTemplate } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +63,18 @@ export default async function BrandPage() {
 
   const completed = modules.filter((m) => !m.isEmpty).length;
   const progress = modules.length > 0 ? completed / modules.length : 0;
+
+  const hasTemplate = await vaultPathExists("brand/templates/active.yaml");
+  let template: CarouselTemplate | null = null;
+  if (hasTemplate) {
+    try {
+      const raw = await readVaultFile("brand/templates/active.yaml");
+      const yaml = await import("js-yaml");
+      template = yaml.load(raw) as CarouselTemplate;
+    } catch {
+      template = null;
+    }
+  }
 
   return (
     <div>
@@ -138,6 +150,111 @@ export default async function BrandPage() {
           ))}
         </div>
       </AnimateIn>
+
+      {template && (
+        <AnimateIn delay={150} className="mb-10">
+          <div className="rounded-[1.5rem] bg-white/[0.02] border border-white/[0.06] p-1.5">
+            <div className="rounded-[calc(1.5rem-0.375rem)] bg-surface/60 p-6 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-[15px] font-semibold text-content">
+                    Carousel template
+                  </h2>
+                  <span className="text-[11px] text-accent bg-accent-soft px-2 py-0.5 rounded-full">
+                    {template.name}
+                  </span>
+                </div>
+                {template.created_at && (
+                  <span className="text-[11px] text-muted">
+                    {template.created_at}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex gap-6 items-start">
+                {/* Sample slide */}
+                <div
+                  className="w-48 aspect-square rounded-lg overflow-hidden relative flex-shrink-0 border border-white/[0.06]"
+                  style={{
+                    background: `linear-gradient(to bottom, ${template.colors.background_start}, ${template.colors.background_end})`,
+                  }}
+                >
+                  {template.accents.top_bar.height > 0 && (
+                    <div
+                      className="absolute top-0 left-0 right-0"
+                      style={{
+                        height: `${Math.max(2, template.accents.top_bar.height / 6)}px`,
+                        backgroundColor: template.colors.accent,
+                      }}
+                    />
+                  )}
+                  {template.accents.left_bar.width > 0 && (
+                    <div
+                      className="absolute top-3 bottom-3 left-2"
+                      style={{
+                        width: `${Math.max(1, template.accents.left_bar.width / 4)}px`,
+                        backgroundColor: template.colors.accent,
+                      }}
+                    />
+                  )}
+                  <div className="absolute left-5 top-6 right-4 bottom-4">
+                    <div
+                      className="text-[11px] font-bold leading-tight mb-1.5"
+                      style={{ color: template.colors.text_primary }}
+                    >
+                      Sample Headline
+                      <br />
+                      Text Here
+                    </div>
+                    {template.accents.divider.width > 0 && (
+                      <div
+                        className="mb-1.5 rounded-full"
+                        style={{
+                          width: `${Math.max(12, template.accents.divider.width / 4)}px`,
+                          height: `${Math.max(1, template.accents.divider.height)}px`,
+                          backgroundColor: template.colors.accent,
+                        }}
+                      />
+                    )}
+                    <div
+                      className="text-[7px] leading-relaxed"
+                      style={{ color: template.colors.text_secondary }}
+                    >
+                      Body text shows up here
+                      <br />
+                      with the template style.
+                    </div>
+                  </div>
+                  <div
+                    className="absolute bottom-2 right-3 text-[6px]"
+                    style={{ color: template.colors.accent }}
+                  >
+                    02 / 05
+                  </div>
+                </div>
+
+                {/* Color strip */}
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: "BG", color: template.colors.background_start },
+                    { label: "Accent", color: template.colors.accent },
+                    { label: "Text", color: template.colors.text_primary },
+                    { label: "Body", color: template.colors.text_secondary },
+                  ].map((swatch) => (
+                    <div key={swatch.label} className="text-center">
+                      <div
+                        className="w-8 h-8 rounded-md border border-white/[0.08] mb-1"
+                        style={{ backgroundColor: swatch.color }}
+                      />
+                      <div className="text-[9px] text-muted">{swatch.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </AnimateIn>
+      )}
 
       {compiledContent && (
         <AnimateIn delay={200} className="mb-8">

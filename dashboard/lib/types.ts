@@ -41,3 +41,43 @@ export interface AnalyticsReport {
   generated_at: string;
   content: string;
 }
+
+export interface CarouselTemplate {
+  name: string;
+  source: string;
+  created_at: string;
+  colors: {
+    background_start: string;
+    background_end: string;
+    accent: string;
+    text_primary: string;
+    text_secondary: string;
+    safe_zone: string;
+  };
+  typography: {
+    headline: { style: string; size: number; case: string };
+    body: { style: string; size: number };
+    counter: { style: string; size: number; visible: boolean; position: string };
+  };
+  layout: {
+    hook_slide: string;
+    value_slide: string;
+    cta_slide: string;
+    text_align: string;
+  };
+  spacing: {
+    safe_zone_padding: number;
+    content_padding_x: number;
+    content_padding_y: number;
+    element_gap: number;
+  };
+  accents: {
+    left_bar: { width: number; color: string };
+    top_bar: { height: number; color: string };
+    divider: { width: number; height: number; color: string };
+  };
+  overlay: {
+    alpha: number;
+    direction: string;
+  };
+}
