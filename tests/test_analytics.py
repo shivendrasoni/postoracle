@@ -234,7 +234,7 @@ class TestGenerateDashboard:
 
         with patch("scripts.analytics.Registry") as MockReg:
             inst = MockReg.return_value
-            inst.filter.return_value = _make_entries()
+            inst.list.return_value = _make_entries()
 
             generate_dashboard(registry_path, vault)
 
@@ -254,7 +254,7 @@ class TestGenerateDashboard:
 
         with patch("scripts.analytics.Registry") as MockReg:
             inst = MockReg.return_value
-            inst.filter.return_value = _make_entries()
+            inst.list.return_value = _make_entries()
 
             generate_dashboard(tmp_path / "reg.json", vault)
 
@@ -275,7 +275,7 @@ class TestGenerateInsights:
 
         with patch("scripts.analytics.Registry") as MockReg:
             inst = MockReg.return_value
-            inst.filter.return_value = _make_entries()
+            inst.list.return_value = _make_entries()
 
             generate_insights(tmp_path / "reg.json", vault)
 
@@ -289,7 +289,7 @@ class TestGenerateInsights:
     def test_no_data_skips(self, tmp_path, capsys):
         with patch("scripts.analytics.Registry") as MockReg:
             inst = MockReg.return_value
-            inst.filter.return_value = []
+            inst.list.return_value = []
 
             generate_insights(tmp_path / "reg.json", tmp_path)
 

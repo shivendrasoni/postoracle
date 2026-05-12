@@ -294,7 +294,7 @@ def pull_metrics(
 ) -> dict:
     """Pull analytics for published entries. Returns {updated: int, errors: list}."""
     reg = Registry(registry_path)
-    entries = reg.filter(status="published") if not entry_id else [reg.get(entry_id)]
+    entries = reg.list(status="published") if not entry_id else [reg.get(entry_id)]
     entries = [e for e in entries if e is not None]
 
     updated = 0
@@ -364,7 +364,7 @@ def format_number(n) -> str:
 
 def print_summary(registry_path: Path = REGISTRY_PATH) -> None:
     reg = Registry(registry_path)
-    entries = [e for e in reg.filter(status="published") if e.get("analytics")]
+    entries = [e for e in reg.list(status="published") if e.get("analytics")]
     if not entries:
         print("No analytics data yet. Run: /analytics --refresh")
         return
@@ -447,7 +447,7 @@ def generate_dashboard(registry_path: Path = REGISTRY_PATH, vault_path: Path = P
     analytics_dir.mkdir(parents=True, exist_ok=True)
 
     reg = Registry(registry_path)
-    entries = [e for e in reg.filter(status="published") if e.get("analytics")]
+    entries = [e for e in reg.list(status="published") if e.get("analytics")]
     now = datetime.now(timezone.utc).isoformat()
 
     _write_overview(analytics_dir, entries, now)
@@ -552,7 +552,7 @@ def _write_content_type_analysis(out_dir: Path, entries: list, now: str) -> None
 def generate_insights(registry_path: Path = REGISTRY_PATH, vault_path: Path = Path("vault")) -> None:
     """Analyze performance data and write vault/brand/modules/performance.md."""
     reg = Registry(registry_path)
-    entries = [e for e in reg.filter(status="published") if e.get("analytics")]
+    entries = [e for e in reg.list(status="published") if e.get("analytics")]
     if not entries:
         print("No analytics data to generate insights from.")
         return
