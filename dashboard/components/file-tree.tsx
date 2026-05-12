@@ -8,6 +8,8 @@ import {
   FileCode,
   Image,
   FilmStrip,
+  Images,
+  Article,
 } from "@phosphor-icons/react";
 
 interface FileTreeProps {
@@ -27,11 +29,7 @@ export default function FileTree({ files, basePath = "" }: FileTreeProps) {
                 className="group flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] text-content
                   hover:bg-white/[0.03] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
               >
-                <Folder
-                  size={16}
-                  weight="duotone"
-                  className="text-amber shrink-0 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-110"
-                />
+                <FolderIcon path={file.path} />
                 {file.name}
               </Link>
               {file.children && file.children.length > 0 && (
@@ -55,6 +53,30 @@ export default function FileTree({ files, basePath = "" }: FileTreeProps) {
       ))}
     </ul>
   );
+}
+
+const SESSION_ICONS: Record<string, typeof FilmStrip> = {
+  reels: FilmStrip,
+  carousels: Images,
+  posts: Article,
+};
+
+function FolderIcon({ path }: { path: string }) {
+  const cls =
+    "shrink-0 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-110";
+  const segments = path.split("/");
+  const parentType = segments.find((s) => s in SESSION_ICONS);
+  if (parentType && segments.length > segments.indexOf(parentType) + 1) {
+    const Icon = SESSION_ICONS[parentType];
+    const colorCls =
+      parentType === "reels"
+        ? "text-flame"
+        : parentType === "carousels"
+          ? "text-accent"
+          : "text-emerald";
+    return <Icon size={16} weight="duotone" className={`${cls} ${colorCls}`} />;
+  }
+  return <Folder size={16} weight="duotone" className={`${cls} text-amber`} />;
 }
 
 function FileIcon({ name }: { name: string }) {
