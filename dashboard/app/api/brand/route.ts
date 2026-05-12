@@ -29,7 +29,7 @@ export async function GET() {
       modules.push({
         filename: file.name,
         module: (data.module as string) ?? file.name.replace(".md", ""),
-        last_updated: (data.last_updated as string) ?? "",
+        last_updated: String(data.last_updated ?? ""),
         content,
         frontmatter: data,
         isEmpty: isPlaceholder,
