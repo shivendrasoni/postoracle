@@ -1,0 +1,11 @@
+{
+  "name": "postoracle",
+  "private": true,
+  "workspaces": ["dashboard", "agent-service"],
+  "scripts": {
+    "dev": "npm run dev:dashboard & npm run dev:agent",
+    "dev:dashboard": "npm run dev --workspace=dashboard",
+    "dev:agent": "npm run dev --workspace=agent-service",
+    "build": "npm run build --workspace=dashboard && npm run build --workspace=agent-service"
+  }
+}
