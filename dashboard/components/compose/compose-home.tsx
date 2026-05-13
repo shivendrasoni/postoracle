@@ -1,0 +1,139 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import {
+  FilmStrip,
+  Images,
+  Article,
+  File,
+  ArrowUpRight,
+} from "@phosphor-icons/react";
+import type { RegistryEntry } from "@/lib/types";
+import ComposeArea from "./compose-area";
+import StatusBadge from "../status-badge";
+import AnimateIn from "../animate-in";
+
+const TYPE_ICONS: Record<string, typeof FilmStrip> = {
+  reel: FilmStrip,
+  carousel: Images,
+  post: Article,
+};
+
+interface ComposeHomeProps {
+  entries: RegistryEntry[];
+}
+
+export default function ComposeHome({ entries }: ComposeHomeProps) {
+  const [visible, setVisible] = useState(false);
+  const recentEntries = entries
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 6);
+
+  useEffect(() => {
+    setVisible(true);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center">
+      {/* Hero section */}
+      <div
+        className="text-center mb-12 mt-4"
+        style={{
+          opacity: visible ? 1 : 0,
+          transform: visible ? "translateY(0)" : "translateY(1.5rem)",
+          transition: "opacity 800ms cubic-bezier(0.32, 0.72, 0, 1), transform 800ms cubic-bezier(0.32, 0.72, 0, 1)",
+        }}
+      >
+        <h1 className="text-[2.25rem] font-semibold tracking-[-0.03em] text-content leading-tight">
+          Turn your ideas into
+          <br />
+          <span className="bg-gradient-to-r from-accent via-emerald to-accent bg-[length:200%_auto] bg-clip-text text-transparent animate-[shimmer_6s_linear_infinite]">
+            publish-ready content
+          </span>
+        </h1>
+        <p className="text-[15px] text-sub mt-4 max-w-md mx-auto leading-relaxed">
+          Describe what you want to create. PostOracle handles the research,
+          scripting, and production.
+        </p>
+      </div>
+
+      {/* Compose card */}
+      <AnimateIn delay={150} className="w-full">
+        <ComposeArea />
+      </AnimateIn>
+
+      {/* Recent content cards (below the fold) */}
+      {recentEntries.length > 0 && (
+        <AnimateIn delay={350} className="w-full mt-20 max-w-[760px] mx-auto">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-[13px] font-medium tracking-[0.08em] uppercase text-muted">
+              Recent creations
+            </h2>
+            <a
+              href="/content"
+              className="
+                text-[12px] text-muted hover:text-sub
+                transition-colors duration-300
+              "
+            >
+              View all
+            </a>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {recentEntries.map((entry) => {
+              const Icon = TYPE_ICONS[entry.type] ?? File;
+              return (
+                <div
+                  key={entry.id}
+                  className="
+                    group rounded-[1.25rem] bg-white/[0.02] border border-white/[0.06] p-1.5
+                    transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
+                    hover:bg-white/[0.03] hover:border-white/[0.08]
+                  "
+                >
+                  <div className="rounded-[calc(1.25rem-0.375rem)] bg-surface/60 p-4 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]">
+                    <div className="flex items-start justify-between mb-3">
+                      <div
+                        className={`
+                          w-8 h-8 rounded-lg flex items-center justify-center shrink-0
+                          ${entry.status === "published"
+                            ? "bg-emerald-soft text-emerald"
+                            : "bg-accent-soft text-accent"
+                          }
+                        `}
+                      >
+                        <Icon size={15} weight="light" />
+                      </div>
+                      <StatusBadge status={entry.status} />
+                    </div>
+                    <div className="text-[13px] font-medium text-content leading-snug line-clamp-2 mb-2">
+                      {entry.topic}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-muted">
+                        {entry.type} · {new Date(entry.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                      <ArrowUpRight
+                        size={12}
+                        weight="bold"
+                        className="
+                          text-muted opacity-0 group-hover:opacity-100
+                          transition-all duration-300
+                          group-hover:translate-x-0.5 group-hover:-translate-y-0.5
+                        "
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </AnimateIn>
+      )}
+    </div>
+  );
+}

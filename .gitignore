@@ -21,6 +21,11 @@ output/
 # Claude Code local settings
 .claude/settings.local.json
 
+# Node
+node_modules/
+
 # Dashboard
-dashboard/node_modules/
 dashboard/.next/
+
+# Superpowers brainstorm sessions
+.superpowers/
