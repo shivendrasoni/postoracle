@@ -4,7 +4,7 @@ import sys
 from typing import Optional
 
 REQUIRED = ["PEXELS_API_KEY", "OPENAI_API_KEY", "HEYGEN_API_KEY"]
-OPTIONAL = ["PIXABAY_API_KEY", "ELEVENLABS_API_KEY"]
+OPTIONAL = ["PIXABAY_API_KEY", "ELEVENLABS_API_KEY", "INSTAGRAM_SESSION_ID", "INSTAGRAM_CSRF_TOKEN", "INSTAGRAM_DS_USER_ID"]
 
 
 def check_env(env: Optional[dict] = None) -> tuple[list[str], list[str]]:

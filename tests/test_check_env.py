@@ -25,6 +25,7 @@ def test_optional_present():
     env = {
         "PEXELS_API_KEY": "x", "OPENAI_API_KEY": "x", "HEYGEN_API_KEY": "x",
         "PIXABAY_API_KEY": "y", "ELEVENLABS_API_KEY": "z",
+        "INSTAGRAM_SESSION_ID": "s", "INSTAGRAM_CSRF_TOKEN": "c", "INSTAGRAM_DS_USER_ID": "d",
     }
     _, missing_optional = check_env(env)
     assert missing_optional == []

@@ -22,6 +22,7 @@ On the first user message of every conversation, display this banner before resp
   /viral-angle     Content angle generator
   /brand-voice     Brand identity builder
   /analytics       Performance analytics
+  /sync-instagram  Sync saved IG posts to vault
   /publish         Push to social platforms
 ```
 
@@ -42,6 +43,7 @@ After the banner, respond to whatever the user asked. If it's a greeting or open
 | `/heygen-video <topic>` | Standalone HeyGen presenter video |
 | `/analytics` | Pull IG + LI metrics, vault dashboards, performance insights |
 | `/publish` | Push content to Instagram, LinkedIn, X |
+| `/sync-instagram` | Sync saved Instagram posts into the vault |
 | `/add-platform <name>` | Scaffold a new publishing platform |
 
 ## Dashboard
@@ -90,6 +92,7 @@ User → Slash Command → Pipeline Stages → Output
 | `scripts/watermark.py` | Branded watermark overlay |
 | `scripts/create_session.py` | Session directory scaffolding |
 | `scripts/build_manifest.py` | Asset manifest builder |
+| `scripts/sync_instagram.py` | Instagram saved posts fetcher and vault writer |
 | `scripts/check_env.py` | Environment variable validator |
 | `AVATAR-USER.md` | Active HeyGen avatar config (symlink) |
 | `.mcp.json` | MCP server config (HeyGen) |
@@ -107,6 +110,9 @@ Required in `.env`:
 | `PEXELS_API_KEY` | B-roll and stock image fetching |
 | `PIXABAY_API_KEY` | Fallback stock images |
 | `ELEVENLABS_API_KEY` | Voice synthesis (video-use skill) |
+| `INSTAGRAM_SESSION_ID` | Instagram saved posts sync (`/sync-instagram`) |
+| `INSTAGRAM_CSRF_TOKEN` | Instagram saved posts sync (`/sync-instagram`) |
+| `INSTAGRAM_DS_USER_ID` | Instagram saved posts sync (`/sync-instagram`) |
 
 ## External Dependencies
 
@@ -131,7 +137,8 @@ vault/
 │   ├── reels/                  # Rendered video sessions
 │   ├── carousels/              # Rendered carousel sessions
 │   └── posts/                  # Rendered post sessions
-├── imports/                    # Platform export files for style analysis
+├── imports/
+│   └── instagram-saved/        # Synced saved posts (markdown + index)
 ├── assets/                     # Logo, photos, brand assets
 ├── logs/                       # Pipeline run logs
 ├── content-registry.json       # Content tracking
