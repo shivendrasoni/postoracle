@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import re
+import ssl
 import sys
 import time
 import urllib.request
@@ -25,6 +26,13 @@ VAULT_DIR = Path("vault/imports/instagram-saved")
 INDEX_PATH = VAULT_DIR / "_index.json"
 IG_BASE = "https://www.instagram.com"
 IG_APP_ID = "936619743392459"
+_SSL_CTX = ssl.create_default_context()
+try:
+    import certifi
+    _SSL_CTX.load_verify_locations(certifi.where())
+except ImportError:
+    _SSL_CTX.check_hostname = False
+    _SSL_CTX.verify_mode = ssl.CERT_NONE
 
 
 class InstagramSessionError(Exception):
@@ -47,7 +55,6 @@ def build_headers(session_id: str, csrf_token: str, ds_user_id: str) -> dict:
         "Cookie": f"sessionid={session_id}; csrftoken={csrf_token}; ds_user_id={ds_user_id}",
         "X-CSRFToken": csrf_token,
         "X-IG-App-ID": IG_APP_ID,
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Instagram 300.0",
         "Accept": "*/*",
         "Referer": f"{IG_BASE}/",
         "X-Requested-With": "XMLHttpRequest",
@@ -63,13 +70,13 @@ def load_env_session() -> tuple[str, str, str]:
 
 def validate_session(headers: dict) -> bool:
     req = urllib.request.Request(
-        f"{IG_BASE}/api/v1/accounts/current_user/?edit=true",
+        f"{IG_BASE}/api/v1/feed/saved/posts/?limit=1",
         headers=headers,
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10, context=_SSL_CTX) as resp:
             data = json.loads(resp.read().decode())
-            return data.get("status") == "ok"
+            return "items" in data
     except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError):
         return False
 
@@ -126,7 +133,7 @@ def fetch_saved_posts_page(headers: dict, max_id: str = "") -> dict:
 
     req = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15, context=_SSL_CTX) as resp:
             return json.loads(resp.read().decode())
     except urllib.error.HTTPError as exc:
         if exc.code == 401:
@@ -140,7 +147,7 @@ def fetch_collections(headers: dict) -> list[dict]:
     url = f"{IG_BASE}/api/v1/collections/list/"
     req = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15, context=_SSL_CTX) as resp:
             data = json.loads(resp.read().decode())
             return data.get("items", [])
     except urllib.error.HTTPError as exc:
@@ -158,7 +165,7 @@ def fetch_collection_posts_page(headers: dict, collection_id: str, max_id: str =
 
     req = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15, context=_SSL_CTX) as resp:
             return json.loads(resp.read().decode())
     except urllib.error.HTTPError as exc:
         if exc.code == 401:

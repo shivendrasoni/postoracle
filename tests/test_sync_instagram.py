@@ -23,8 +23,8 @@ class TestBuildHeaders:
         )
         assert headers["Cookie"] == "sessionid=abc123; csrftoken=tok456; ds_user_id=789"
         assert headers["X-CSRFToken"] == "tok456"
-        assert "Instagram" in headers["User-Agent"]
         assert headers["X-IG-App-ID"] == "936619743392459"
+        assert headers["X-Requested-With"] == "XMLHttpRequest"
 
     def test_missing_session_id_raises(self):
         with pytest.raises(InstagramSessionError, match="sessionid"):
