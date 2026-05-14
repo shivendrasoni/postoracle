@@ -8,6 +8,7 @@ import pytest
 
 from scripts.sync_instagram import build_headers, validate_session, InstagramSessionError
 from scripts.sync_instagram import parse_saved_post, parse_media_type, fetch_saved_posts_page
+from scripts.sync_instagram import Index
 
 
 class TestBuildHeaders:
@@ -115,3 +116,40 @@ class TestParseSavedPost:
     def test_parses_timestamp(self):
         result = parse_saved_post(SAMPLE_ITEM)
         assert result["date_published"].startswith("2024-05-08")
+
+
+class TestIndex:
+    def test_load_empty(self, tmp_path):
+        idx = Index(tmp_path / "_index.json")
+        assert idx.entries == {}
+
+    def test_add_and_has(self, tmp_path):
+        idx = Index(tmp_path / "_index.json")
+        idx.add("ABC123", "2026-05-14-abc123.md", collection="Inspiration")
+        assert idx.has("ABC123")
+        assert not idx.has("XYZ999")
+
+    def test_persists_to_disk(self, tmp_path):
+        path = tmp_path / "_index.json"
+        idx = Index(path)
+        idx.add("ABC123", "file.md")
+        idx.save()
+
+        idx2 = Index(path)
+        assert idx2.has("ABC123")
+        assert idx2.entries["ABC123"]["file"] == "file.md"
+
+    def test_add_updates_existing(self, tmp_path):
+        idx = Index(tmp_path / "_index.json")
+        idx.add("ABC123", "old.md", collection="Old")
+        idx.add("ABC123", "new.md", collection="New")
+        assert idx.entries["ABC123"]["file"] == "new.md"
+        assert idx.entries["ABC123"]["collection"] == "New"
+
+    def test_count(self, tmp_path):
+        idx = Index(tmp_path / "_index.json")
+        idx.add("A", "a.md")
+        idx.add("B", "b.md")
+        assert idx.count() == 2
+
+

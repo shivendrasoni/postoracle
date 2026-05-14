@@ -166,3 +166,30 @@ def fetch_collection_posts_page(headers: dict, collection_id: str, max_id: str =
                 "Session expired — re-grab sessionid, csrftoken, ds_user_id from browser cookies"
             )
         raise InstagramAPIError(f"Instagram API returned {exc.code}: {exc.reason}")
+
+
+class Index:
+    def __init__(self, path: Path = INDEX_PATH):
+        self.path = Path(path)
+        self.entries: dict[str, dict] = {}
+        if self.path.exists():
+            self.entries = json.loads(self.path.read_text())
+
+    def has(self, shortcode: str) -> bool:
+        return shortcode in self.entries
+
+    def add(self, shortcode: str, filename: str, collection: str = "") -> None:
+        self.entries[shortcode] = {
+            "file": filename,
+            "collection": collection,
+            "synced_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    def count(self) -> int:
+        return len(self.entries)
+
+    def save(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(json.dumps(self.entries, indent=2, ensure_ascii=False) + "\n")
+
+
