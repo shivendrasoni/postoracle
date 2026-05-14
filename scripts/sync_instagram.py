@@ -193,3 +193,43 @@ class Index:
         self.path.write_text(json.dumps(self.entries, indent=2, ensure_ascii=False) + "\n")
 
 
+def _slugify(text: str, max_len: int = 40) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    return slug[:max_len].rstrip("-")
+
+
+def generate_markdown(post: dict, collection: str = "", date_saved: str = "") -> str:
+    lines = [
+        "---",
+        "source: instagram",
+        f"shortcode: {post['shortcode']}",
+        f"link: {post['link']}",
+        f"type: {post['type']}",
+        f'author: "@{post["author"]}"',
+    ]
+    if post.get("author_name"):
+        lines.append(f"author_name: {post['author_name']}")
+    lines.append(f"date_published: {post['date_published']}")
+    if date_saved:
+        lines.append(f"date_saved: {date_saved}")
+    if collection:
+        lines.append(f"collection: {collection}")
+    lines.append(f"like_count: {post['like_count']}")
+    lines.append(f"comment_count: {post['comment_count']}")
+    if post.get("thumbnail_url"):
+        lines.append(f"thumbnail: {post['thumbnail_url']}")
+    lines.append("---")
+    lines.append("")
+    lines.append(post.get("caption", ""))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write_post_file(post: dict, out_dir: Path = VAULT_DIR, collection: str = "", date_saved: str = "") -> Path:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    caption_slug = _slugify(post.get("caption", "")[:60])
+    filename = f"{post['shortcode']}-{caption_slug}.md" if caption_slug else f"{post['shortcode']}.md"
+    filepath = out_dir / filename
+    md = generate_markdown(post, collection=collection, date_saved=date_saved)
+    filepath.write_text(md)
+    return filepath

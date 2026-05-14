@@ -9,6 +9,7 @@ import pytest
 from scripts.sync_instagram import build_headers, validate_session, InstagramSessionError
 from scripts.sync_instagram import parse_saved_post, parse_media_type, fetch_saved_posts_page
 from scripts.sync_instagram import Index
+from scripts.sync_instagram import generate_markdown, write_post_file
 
 
 class TestBuildHeaders:
@@ -153,3 +154,78 @@ class TestIndex:
         assert idx.count() == 2
 
 
+class TestGenerateMarkdown:
+    def test_full_post(self):
+        post = {
+            "shortcode": "DKxyz123",
+            "type": "carousel",
+            "author": "designguru",
+            "author_name": "Design Guru",
+            "caption": "Great design inspo\n#design #ui",
+            "link": "https://www.instagram.com/p/DKxyz123/",
+            "date_published": "2024-05-08T16:00:00Z",
+            "like_count": 4521,
+            "comment_count": 87,
+            "thumbnail_url": "https://example.com/thumb.jpg",
+        }
+        md = generate_markdown(post, collection="Design Inspiration", date_saved="2026-05-14")
+        assert "source: instagram" in md
+        assert "type: carousel" in md
+        assert 'author: "@designguru"' in md
+        assert "collection: Design Inspiration" in md
+        assert "like_count: 4521" in md
+        assert "Great design inspo" in md
+
+    def test_empty_caption(self):
+        post = {
+            "shortcode": "DKempty",
+            "type": "post",
+            "author": "someone",
+            "author_name": "",
+            "caption": "",
+            "link": "https://www.instagram.com/p/DKempty/",
+            "date_published": "2024-01-01T00:00:00Z",
+            "like_count": 10,
+            "comment_count": 0,
+            "thumbnail_url": "",
+        }
+        md = generate_markdown(post, collection="All Posts")
+        assert "---\n\n\n" in md
+
+
+class TestWritePostFile:
+    def test_creates_file(self, tmp_path):
+        post = {
+            "shortcode": "DKtest1",
+            "type": "reel",
+            "author": "testuser",
+            "author_name": "Test",
+            "caption": "Hello world",
+            "link": "https://www.instagram.com/reel/DKtest1/",
+            "date_published": "2024-06-01T12:00:00Z",
+            "like_count": 100,
+            "comment_count": 5,
+            "thumbnail_url": "",
+        }
+        filepath = write_post_file(post, tmp_path, collection="Saved")
+        assert filepath.exists()
+        content = filepath.read_text()
+        assert "shortcode: DKtest1" in content
+        assert "Hello world" in content
+
+    def test_filename_format(self, tmp_path):
+        post = {
+            "shortcode": "DKname1",
+            "type": "carousel",
+            "author": "designguru",
+            "author_name": "",
+            "caption": "Some long caption that should be truncated for the filename",
+            "link": "https://www.instagram.com/p/DKname1/",
+            "date_published": "2024-06-01T12:00:00Z",
+            "like_count": 0,
+            "comment_count": 0,
+            "thumbnail_url": "",
+        }
+        filepath = write_post_file(post, tmp_path)
+        assert filepath.name.startswith("DKname1-")
+        assert filepath.suffix == ".md"
