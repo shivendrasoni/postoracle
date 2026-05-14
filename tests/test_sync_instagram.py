@@ -10,6 +10,7 @@ from scripts.sync_instagram import build_headers, validate_session, InstagramSes
 from scripts.sync_instagram import parse_saved_post, parse_media_type, fetch_saved_posts_page
 from scripts.sync_instagram import Index
 from scripts.sync_instagram import generate_markdown, write_post_file
+from scripts.sync_instagram import sync_saved_posts
 
 
 class TestBuildHeaders:
@@ -229,3 +230,63 @@ class TestWritePostFile:
         filepath = write_post_file(post, tmp_path)
         assert filepath.name.startswith("DKname1-")
         assert filepath.suffix == ".md"
+
+
+SAMPLE_API_RESPONSE = {
+    "items": [SAMPLE_ITEM, SAMPLE_REEL_ITEM, SAMPLE_SINGLE_ITEM],
+    "more_available": False,
+    "next_max_id": None,
+    "status": "ok",
+}
+
+
+class TestSyncSavedPosts:
+    @patch("scripts.sync_instagram.fetch_saved_posts_page")
+    def test_syncs_new_posts(self, mock_fetch, tmp_path):
+        mock_fetch.return_value = SAMPLE_API_RESPONSE
+        index_path = tmp_path / "_index.json"
+        result = sync_saved_posts(
+            headers={"fake": "headers"},
+            vault_dir=tmp_path,
+            index_path=index_path,
+            refresh=False,
+        )
+        assert result["synced"] == 3
+        assert result["skipped"] == 0
+        assert (tmp_path / "_index.json").exists()
+        md_files = list(tmp_path.glob("*.md"))
+        assert len(md_files) == 3
+
+    @patch("scripts.sync_instagram.fetch_saved_posts_page")
+    def test_skips_existing_on_default_sync(self, mock_fetch, tmp_path):
+        index_path = tmp_path / "_index.json"
+        idx = Index(index_path)
+        idx.add("DKxyz123", "existing.md")
+        idx.save()
+
+        mock_fetch.return_value = SAMPLE_API_RESPONSE
+        result = sync_saved_posts(
+            headers={"fake": "headers"},
+            vault_dir=tmp_path,
+            index_path=index_path,
+            refresh=False,
+        )
+        assert result["synced"] == 2
+        assert result["skipped"] == 1
+
+    @patch("scripts.sync_instagram.fetch_saved_posts_page")
+    def test_refresh_overwrites_existing(self, mock_fetch, tmp_path):
+        index_path = tmp_path / "_index.json"
+        idx = Index(index_path)
+        idx.add("DKxyz123", "existing.md")
+        idx.save()
+
+        mock_fetch.return_value = SAMPLE_API_RESPONSE
+        result = sync_saved_posts(
+            headers={"fake": "headers"},
+            vault_dir=tmp_path,
+            index_path=index_path,
+            refresh=True,
+        )
+        assert result["synced"] == 3
+        assert result["skipped"] == 0

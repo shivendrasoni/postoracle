@@ -233,3 +233,62 @@ def write_post_file(post: dict, out_dir: Path = VAULT_DIR, collection: str = "",
     md = generate_markdown(post, collection=collection, date_saved=date_saved)
     filepath.write_text(md)
     return filepath
+
+
+def sync_saved_posts(
+    headers: dict,
+    vault_dir: Path = VAULT_DIR,
+    index_path: Path = INDEX_PATH,
+    refresh: bool = False,
+    collection_name: str = "",
+    collection_id: str = "",
+) -> dict:
+    idx = Index(index_path)
+    vault_dir.mkdir(parents=True, exist_ok=True)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    synced = 0
+    skipped = 0
+    errors = []
+    max_id = ""
+
+    while True:
+        if collection_id:
+            page = fetch_collection_posts_page(headers, collection_id, max_id=max_id)
+        else:
+            page = fetch_saved_posts_page(headers, max_id=max_id)
+
+        items = page.get("items", [])
+        for item in items:
+            media = item.get("media", {})
+            shortcode = media.get("code", "")
+            if not shortcode:
+                continue
+
+            if not refresh and idx.has(shortcode):
+                skipped += 1
+                continue
+
+            try:
+                post = parse_saved_post(item)
+                filepath = write_post_file(
+                    post, vault_dir,
+                    collection=collection_name,
+                    date_saved=today,
+                )
+                idx.add(shortcode, filepath.name, collection=collection_name)
+                synced += 1
+            except Exception as exc:
+                errors.append(f"{shortcode}: {exc}")
+
+        if not page.get("more_available", False):
+            break
+
+        next_id = page.get("next_max_id", "")
+        if not next_id:
+            break
+        max_id = next_id
+        time.sleep(1.5)
+
+    idx.save()
+    return {"synced": synced, "skipped": skipped, "errors": errors, "total_indexed": idx.count()}
