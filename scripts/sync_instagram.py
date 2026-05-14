@@ -339,3 +339,96 @@ def sync_all_collections(
         "skipped": total_skipped,
         "errors": all_errors,
     }
+
+
+def _print_result(result: dict, label: str = "Sync") -> None:
+    print(f"\n✓ {label} complete")
+    print(f"  Synced: {result['synced']} new posts")
+    if result.get("skipped"):
+        print(f"  Skipped: {result['skipped']} (already indexed)")
+    if result.get("collections_synced"):
+        print(f"  Collections: {result['collections_synced']}")
+    print(f"  Total indexed: {result.get('total_indexed', '—')}")
+    if result.get("errors"):
+        print(f"  Errors: {len(result['errors'])}")
+        for err in result["errors"]:
+            print(f"    [ERROR] {err}")
+    print(f"  Vault: {VAULT_DIR}/")
+
+
+def main() -> None:
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    parser = argparse.ArgumentParser(description="Sync saved Instagram posts to vault")
+    sub = parser.add_subparsers(dest="command")
+
+    sync_p = sub.add_parser("sync", help="Sync saved posts")
+    sync_p.add_argument("--refresh", action="store_true", help="Re-fetch all, update existing")
+    sync_p.add_argument("--collection", default="", help="Sync only this collection")
+
+    sub.add_parser("collections", help="List saved collections")
+    sub.add_parser("status", help="Show sync status")
+
+    args = parser.parse_args()
+
+    session_id, csrf_token, ds_user_id = load_env_session()
+    headers = build_headers(session_id, csrf_token, ds_user_id)
+
+    if args.command == "sync":
+        if args.collection:
+            print(f"Syncing collection: {args.collection}...")
+            result = sync_all_collections(
+                headers=headers,
+                refresh=args.refresh,
+                filter_name=args.collection,
+            )
+            _print_result(result, label=f"Collection sync ({args.collection})")
+        else:
+            print("Syncing all saved posts...")
+            result = sync_saved_posts(headers=headers, refresh=args.refresh)
+
+            print("Syncing collections...")
+            col_result = sync_all_collections(headers=headers, refresh=args.refresh)
+
+            combined = {
+                "synced": result["synced"] + col_result["synced"],
+                "skipped": result["skipped"] + col_result["skipped"],
+                "errors": result["errors"] + col_result["errors"],
+                "total_indexed": result["total_indexed"],
+                "collections_synced": col_result["collections_synced"],
+            }
+            _print_result(combined)
+
+    elif args.command == "collections":
+        print("Fetching collections...")
+        raw = fetch_collections(headers)
+        collections = [parse_collection(c) for c in raw]
+        if not collections:
+            print("No saved collections found.")
+            return
+        print(f"\n{len(collections)} collection(s):\n")
+        for c in collections:
+            print(f"  • {c['name']} ({c['count']} posts) [id: {c['id']}]")
+
+    elif args.command == "status":
+        idx = Index()
+        if idx.count() == 0:
+            print("No posts synced yet. Run: /sync-instagram")
+            return
+        collections = set()
+        for entry in idx.entries.values():
+            collections.add(entry.get("collection", "uncategorized"))
+        md_files = list(VAULT_DIR.glob("*.md"))
+        print(f"\n— Instagram Saved Posts Status —")
+        print(f"  Indexed: {idx.count()} posts")
+        print(f"  Files: {len(md_files)} markdown files")
+        print(f"  Collections: {len(collections)}")
+        print(f"  Vault: {VAULT_DIR}/")
+
+    else:
+        parser.print_help()
+
+
+if __name__ == "__main__":
+    main()
