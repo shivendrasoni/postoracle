@@ -11,6 +11,7 @@ from scripts.sync_instagram import parse_saved_post, parse_media_type, fetch_sav
 from scripts.sync_instagram import Index
 from scripts.sync_instagram import generate_markdown, write_post_file
 from scripts.sync_instagram import sync_saved_posts
+from scripts.sync_instagram import parse_collection, sync_all_collections
 
 
 class TestBuildHeaders:
@@ -290,3 +291,55 @@ class TestSyncSavedPosts:
         )
         assert result["synced"] == 3
         assert result["skipped"] == 0
+
+
+SAMPLE_COLLECTIONS_RESPONSE = [
+    {
+        "collection_id": "17850123456",
+        "collection_name": "Design Inspiration",
+        "collection_media_count": 42,
+    },
+    {
+        "collection_id": "17850789012",
+        "collection_name": "Copywriting",
+        "collection_media_count": 18,
+    },
+]
+
+
+class TestParseCollection:
+    def test_parses_fields(self):
+        result = parse_collection(SAMPLE_COLLECTIONS_RESPONSE[0])
+        assert result["id"] == "17850123456"
+        assert result["name"] == "Design Inspiration"
+        assert result["count"] == 42
+
+
+class TestSyncAllCollections:
+    @patch("scripts.sync_instagram.sync_saved_posts")
+    @patch("scripts.sync_instagram.fetch_collections")
+    def test_syncs_each_collection(self, mock_fetch_cols, mock_sync, tmp_path):
+        mock_fetch_cols.return_value = SAMPLE_COLLECTIONS_RESPONSE
+        mock_sync.return_value = {"synced": 5, "skipped": 0, "errors": [], "total_indexed": 5}
+
+        result = sync_all_collections(
+            headers={"fake": "headers"},
+            vault_dir=tmp_path,
+            index_path=tmp_path / "_index.json",
+        )
+        assert mock_sync.call_count == 2
+        assert result["collections_synced"] == 2
+
+    @patch("scripts.sync_instagram.sync_saved_posts")
+    @patch("scripts.sync_instagram.fetch_collections")
+    def test_filters_by_collection_name(self, mock_fetch_cols, mock_sync, tmp_path):
+        mock_fetch_cols.return_value = SAMPLE_COLLECTIONS_RESPONSE
+        mock_sync.return_value = {"synced": 5, "skipped": 0, "errors": [], "total_indexed": 5}
+
+        result = sync_all_collections(
+            headers={"fake": "headers"},
+            vault_dir=tmp_path,
+            index_path=tmp_path / "_index.json",
+            filter_name="Copywriting",
+        )
+        assert mock_sync.call_count == 1

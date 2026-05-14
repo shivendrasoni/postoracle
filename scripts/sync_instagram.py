@@ -292,3 +292,50 @@ def sync_saved_posts(
 
     idx.save()
     return {"synced": synced, "skipped": skipped, "errors": errors, "total_indexed": idx.count()}
+
+
+def parse_collection(item: dict) -> dict:
+    return {
+        "id": str(item.get("collection_id", "")),
+        "name": item.get("collection_name", ""),
+        "count": item.get("collection_media_count", 0),
+    }
+
+
+def sync_all_collections(
+    headers: dict,
+    vault_dir: Path = VAULT_DIR,
+    index_path: Path = INDEX_PATH,
+    refresh: bool = False,
+    filter_name: str = "",
+) -> dict:
+    raw_collections = fetch_collections(headers)
+    collections = [parse_collection(c) for c in raw_collections]
+
+    if filter_name:
+        collections = [c for c in collections if c["name"].lower() == filter_name.lower()]
+
+    total_synced = 0
+    total_skipped = 0
+    all_errors = []
+
+    for col in collections:
+        print(f"  Syncing collection: {col['name']} ({col['count']} posts)...")
+        result = sync_saved_posts(
+            headers=headers,
+            vault_dir=vault_dir,
+            index_path=index_path,
+            refresh=refresh,
+            collection_name=col["name"],
+            collection_id=col["id"],
+        )
+        total_synced += result["synced"]
+        total_skipped += result["skipped"]
+        all_errors.extend(result["errors"])
+
+    return {
+        "collections_synced": len(collections),
+        "synced": total_synced,
+        "skipped": total_skipped,
+        "errors": all_errors,
+    }
