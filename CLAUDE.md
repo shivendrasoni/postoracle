@@ -34,7 +34,7 @@ After the banner, respond to whatever the user asked. If it's a greeting or open
 | Command | What it does |
 |---------|-------------|
 | `/setup` | First-time setup wizard — deps, API keys, platform connections |
-| `/make-reel <topic>` | Video pipeline: Video Agent (default), `--heygen-basic` (talking head + local edit), or `--edit-raw <video>` (edit your own footage). Config: `vault/reel-config.yaml` |
+| `/make-reel <topic>` | Video pipeline: Video Agent (default), `--heygen-basic` (talking head + local edit), or `--edit-raw <video>` (edit your own footage). Config: `vault/postoracle.yaml` |
 | `/make-carousel <topic>` | 5–6 branded slide images + caption |
 | `/make-post <topic>` | Single-image post per platform |
 | `/viral-angle <topic>` | Generate scored content angles (Contrast Formula) |
