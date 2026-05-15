@@ -48,7 +48,7 @@ Parse the JSON output into `$CONFIG`. Flag values from arguments override config
 
 ## 1. Create Session Folder
 
-Do NOT use `create_session.py` — it hardcodes `output/reels/`. Create the carousel session directory directly:
+Create the carousel session directory directly (do not use `create_session.py` — it defaults to reels):
 
 ```bash
 TODAY=$(date +%Y-%m-%d)
@@ -283,7 +283,7 @@ print(json.dumps(inp if inp.startswith('http') else None))
     'scheduled_at': None,
     'published_at': {},
     'published_urls': {},
-    'session_dir': '$SESSION_DIR',
+    'session_dir': '${SESSION_DIR#$(pwd)/}',
     'tags': [],
 }
 

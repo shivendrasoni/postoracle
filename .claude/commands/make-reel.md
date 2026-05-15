@@ -757,7 +757,7 @@ print(json.dumps(inp if inp.startswith('http') else None))
     'scheduled_at': None,
     'published_at': {},
     'published_urls': {},
-    'session_dir': '$SESSION_DIR',
+    'session_dir': '${SESSION_DIR#$(pwd)/}',
     'tags': [],
 }
 

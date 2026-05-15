@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { RegistryEntry } from "@/lib/types";
 import StatusBadge from "./status-badge";
+import PublishModal from "./publish-modal";
 import {
   FilmStrip,
   Images,
@@ -11,6 +13,8 @@ import {
   CaretRight,
   SortAscending,
   Eye,
+  PaperPlaneTilt,
+  ArrowSquareOut,
 } from "@phosphor-icons/react";
 
 const TYPE_ICONS: Record<string, typeof FilmStrip> = {
@@ -26,10 +30,12 @@ interface ContentTableProps {
 }
 
 export default function ContentTable({ entries }: ContentTableProps) {
+  const router = useRouter();
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortKey>("date");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [publishEntry, setPublishEntry] = useState<RegistryEntry | null>(null);
 
   const filtered = entries.filter((e) => {
     if (typeFilter !== "all" && e.type !== typeFilter) return false;
@@ -194,7 +200,7 @@ export default function ContentTable({ entries }: ContentTableProps) {
                 <div
                   className="overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
                   style={{
-                    maxHeight: isExpanded ? "300px" : "0",
+                    maxHeight: isExpanded ? "400px" : "0",
                     opacity: isExpanded ? 1 : 0,
                   }}
                 >
@@ -226,17 +232,22 @@ export default function ContentTable({ entries }: ContentTableProps) {
                           </span>
                         </div>
                       )}
-                      {Object.keys(entry.published_urls).length > 0 && (
+                      {entry.published_urls && Object.keys(entry.published_urls).length > 0 && (
                         <div>
                           <span className="text-muted">Published </span>
                           {Object.entries(entry.published_urls).map(
-                            ([platform]) => (
-                              <span
+                            ([platform, url]) => (
+                              <a
                                 key={platform}
-                                className="text-sub ml-2"
+                                href={url || "#"}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 ml-2 text-accent hover:text-accent/80 transition-colors"
+                                onClick={(e) => { if (!url) e.preventDefault(); }}
                               >
-                                {platform}
-                              </span>
+                                <span className="capitalize">{platform}</span>
+                                {url && <ArrowSquareOut size={11} weight="bold" />}
+                              </a>
                             )
                           )}
                         </div>
@@ -252,7 +263,7 @@ export default function ContentTable({ entries }: ContentTableProps) {
                         </div>
                       )}
                     </div>
-                    {entry.tags.length > 0 && (
+                    {entry.tags?.length > 0 && (
                       <div className="mt-3 flex gap-1.5 flex-wrap">
                         {entry.tags.map((tag) => (
                           <span
@@ -264,6 +275,21 @@ export default function ContentTable({ entries }: ContentTableProps) {
                         ))}
                       </div>
                     )}
+                    <div className="mt-3.5 pt-3 border-t border-white/[0.04]">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPublishEntry(entry);
+                        }}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-medium
+                          bg-accent/10 text-accent border border-accent/20
+                          hover:bg-accent/20 hover:border-accent/30
+                          transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
+                      >
+                        <PaperPlaneTilt size={14} weight="fill" />
+                        {entry.status === "published" ? "Publish to more" : "Publish"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -271,6 +297,14 @@ export default function ContentTable({ entries }: ContentTableProps) {
           })}
         </div>
       </div>
+
+      {publishEntry && (
+        <PublishModal
+          entry={publishEntry}
+          onClose={() => setPublishEntry(null)}
+          onPublished={() => router.refresh()}
+        />
+      )}
     </div>
   );
 }

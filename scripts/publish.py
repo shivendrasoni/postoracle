@@ -485,13 +485,19 @@ def main() -> None:
     parser.add_argument("--session-dir", required=True, type=Path)
     parser.add_argument("--platform", required=True, help="instagram | linkedin | all")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--json", action="store_true", help="Output results as JSON")
     parser.add_argument("--config", type=Path, default=None)
     args = parser.parse_args()
 
     try:
-        publish(args.session_dir, args.platform, dry_run=args.dry_run, config_path=args.config)
+        results = publish(args.session_dir, args.platform, dry_run=args.dry_run, config_path=args.config)
+        if args.json:
+            print(json.dumps(results))
     except PublishError as exc:
-        print(f"[ERROR] {exc}", file=sys.stderr)
+        if args.json:
+            print(json.dumps({"error": str(exc)}))
+        else:
+            print(f"[ERROR] {exc}", file=sys.stderr)
         sys.exit(1)
 
 
