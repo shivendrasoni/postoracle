@@ -74,9 +74,17 @@ export function buildUserMessage(job: Job): MessageParam["content"] {
       if (job.config.slides) parts.push(`Slides: ${job.config.slides}`);
       if (job.config.avatarId) parts.push(`Avatar ID: ${job.config.avatarId}`);
       if (job.config.voiceId) parts.push(`Voice ID: ${job.config.voiceId}`);
+      if (job.config.styleId) parts.push(`HeyGen Style ID: ${job.config.styleId}`);
       if (job.config.fromAngle) parts.push(`Use existing angle from: ${job.config.fromAngle}`);
       if (job.config.attachments?.length) parts.push(`Attachments: ${job.config.attachments.join(", ")}`);
       if (job.config.autoPublish) parts.push(`Auto-publish to: ${job.config.autoPublish}`);
+      const params = job.config.params;
+      if (params && Object.keys(params).length > 0) {
+        parts.push("Settings overrides:");
+        for (const [k, v] of Object.entries(params)) {
+          parts.push(`  ${k}: ${v}`);
+        }
+      }
       return parts.join("\n");
     }
   }

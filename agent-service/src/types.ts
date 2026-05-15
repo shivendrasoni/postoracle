@@ -11,6 +11,7 @@ export interface CreateJobRequest {
   slides?: 5 | 6;
   avatarId?: string;
   voiceId?: string;
+  styleId?: string;
   fromAngle?: string;
   attachments?: string[];
   autoPublish?: string;
