@@ -90,9 +90,22 @@ def parse_media_type(media: dict) -> str:
     return "post"
 
 
-def parse_saved_post(item: dict) -> dict:
+def fetch_media_info(headers: dict, media_pk: str) -> dict:
+    url = f"{IG_BASE}/api/v1/media/{media_pk}/info/"
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=15, context=_SSL_CTX) as resp:
+            data = json.loads(resp.read().decode())
+            items = data.get("items", [])
+            return items[0] if items else {}
+    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError):
+        return {}
+
+
+def parse_saved_post(item: dict, headers: dict | None = None) -> dict:
     media = item.get("media", {})
     shortcode = media.get("code", "")
+    media_pk = media.get("pk", "")
     post_type = parse_media_type(media)
     caption_obj = media.get("caption")
     caption = caption_obj.get("text", "") if isinstance(caption_obj, dict) else ""
@@ -105,6 +118,21 @@ def parse_saved_post(item: dict) -> dict:
     else:
         link = f"{IG_BASE}/p/{shortcode}/"
 
+    comment_count = media.get("comment_count", 0)
+    view_count = media.get("play_count", 0) or media.get("view_count", 0)
+
+    if headers and media_pk and (comment_count == 0 or view_count == 0):
+        detailed = fetch_media_info(headers, str(media_pk))
+        if detailed:
+            if comment_count == 0:
+                comment_count = detailed.get("comment_count", 0)
+            if view_count == 0:
+                view_count = (
+                    detailed.get("play_count", 0)
+                    or detailed.get("view_count", 0)
+                )
+            time.sleep(0.5)
+
     return {
         "shortcode": shortcode,
         "type": post_type,
@@ -114,7 +142,8 @@ def parse_saved_post(item: dict) -> dict:
         "link": link,
         "date_published": dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "like_count": media.get("like_count", 0),
-        "comment_count": media.get("comment_count", 0),
+        "comment_count": comment_count,
+        "view_count": view_count,
         "thumbnail_url": _extract_thumbnail(media),
     }
 
@@ -223,6 +252,8 @@ def generate_markdown(post: dict, collection: str = "", date_saved: str = "") ->
         lines.append(f"collection: {collection}")
     lines.append(f"like_count: {post['like_count']}")
     lines.append(f"comment_count: {post['comment_count']}")
+    if post.get("view_count"):
+        lines.append(f"view_count: {post['view_count']}")
     if post.get("thumbnail_url"):
         lines.append(f"thumbnail: {post['thumbnail_url']}")
     lines.append("---")
@@ -277,7 +308,7 @@ def sync_saved_posts(
                 continue
 
             try:
-                post = parse_saved_post(item)
+                post = parse_saved_post(item, headers=headers)
                 filepath = write_post_file(
                     post, vault_dir,
                     collection=collection_name,

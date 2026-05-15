@@ -8,6 +8,7 @@ import pytest
 
 from scripts.sync_instagram import build_headers, validate_session, InstagramSessionError
 from scripts.sync_instagram import parse_saved_post, parse_media_type, fetch_saved_posts_page
+from scripts.sync_instagram import fetch_media_info
 from scripts.sync_instagram import Index
 from scripts.sync_instagram import generate_markdown, write_post_file
 from scripts.sync_instagram import sync_saved_posts
@@ -57,6 +58,7 @@ SAMPLE_ITEM = {
 SAMPLE_REEL_ITEM = {
     "media": {
         "code": "DKreel99",
+        "pk": "3456789012",
         "caption": {"text": "Watch this reel"},
         "media_type": 2,
         "product_type": "clips",
@@ -64,6 +66,7 @@ SAMPLE_REEL_ITEM = {
         "taken_at": 1715300000,
         "like_count": 10000,
         "comment_count": 200,
+        "play_count": 50000,
     }
 }
 
@@ -111,6 +114,7 @@ class TestParseSavedPost:
         assert result["shortcode"] == "DKreel99"
         assert result["type"] == "reel"
         assert result["link"] == "https://www.instagram.com/reel/DKreel99/"
+        assert result["view_count"] == 50000
 
     def test_handles_missing_caption(self):
         result = parse_saved_post(SAMPLE_SINGLE_ITEM)
@@ -119,6 +123,36 @@ class TestParseSavedPost:
     def test_parses_timestamp(self):
         result = parse_saved_post(SAMPLE_ITEM)
         assert result["date_published"].startswith("2024-05-08")
+
+    @patch("scripts.sync_instagram.fetch_media_info")
+    def test_fetches_media_info_when_comment_count_zero(self, mock_info):
+        mock_info.return_value = {
+            "comment_count": 87,
+            "play_count": 120000,
+        }
+        item_with_zero = {
+            "media": {
+                **SAMPLE_REEL_ITEM["media"],
+                "comment_count": 0,
+                "play_count": 0,
+            }
+        }
+        result = parse_saved_post(item_with_zero, headers={"fake": "h"})
+        assert result["comment_count"] == 87
+        assert result["view_count"] == 120000
+        mock_info.assert_called_once()
+
+    def test_skips_media_info_when_no_headers(self):
+        item_with_zero = {
+            "media": {
+                **SAMPLE_REEL_ITEM["media"],
+                "comment_count": 0,
+                "play_count": 0,
+            }
+        }
+        result = parse_saved_post(item_with_zero)
+        assert result["comment_count"] == 0
+        assert result["view_count"] == 0
 
 
 class TestIndex:
@@ -168,6 +202,7 @@ class TestGenerateMarkdown:
             "date_published": "2024-05-08T16:00:00Z",
             "like_count": 4521,
             "comment_count": 87,
+            "view_count": 50000,
             "thumbnail_url": "https://example.com/thumb.jpg",
         }
         md = generate_markdown(post, collection="Design Inspiration", date_saved="2026-05-14")
@@ -176,6 +211,7 @@ class TestGenerateMarkdown:
         assert 'author: "@designguru"' in md
         assert "collection: Design Inspiration" in md
         assert "like_count: 4521" in md
+        assert "view_count: 50000" in md
         assert "Great design inspo" in md
 
     def test_empty_caption(self):
@@ -189,10 +225,12 @@ class TestGenerateMarkdown:
             "date_published": "2024-01-01T00:00:00Z",
             "like_count": 10,
             "comment_count": 0,
+            "view_count": 0,
             "thumbnail_url": "",
         }
         md = generate_markdown(post, collection="All Posts")
         assert "---\n\n\n" in md
+        assert "view_count" not in md
 
 
 class TestWritePostFile:
@@ -207,6 +245,7 @@ class TestWritePostFile:
             "date_published": "2024-06-01T12:00:00Z",
             "like_count": 100,
             "comment_count": 5,
+            "view_count": 2000,
             "thumbnail_url": "",
         }
         filepath = write_post_file(post, tmp_path, collection="Saved")
@@ -226,6 +265,7 @@ class TestWritePostFile:
             "date_published": "2024-06-01T12:00:00Z",
             "like_count": 0,
             "comment_count": 0,
+            "view_count": 0,
             "thumbnail_url": "",
         }
         filepath = write_post_file(post, tmp_path)
