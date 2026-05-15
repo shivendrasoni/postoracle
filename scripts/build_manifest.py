@@ -45,7 +45,8 @@ if __name__ == "__main__":
     parser.add_argument("out_path")
     args = parser.parse_args()
 
-    beats = json.loads(Path(args.beats_json).read_text())
+    raw = json.loads(Path(args.beats_json).read_text())
+    beats = raw["beats"] if isinstance(raw, dict) else raw
     manifest = build_manifest(beats, Path(args.broll_dir), Path(args.sfx_dir))
     Path(args.out_path).write_text(json.dumps(manifest, indent=2))
     print(f"Manifest written: {args.out_path} ({len(manifest)} beats)")

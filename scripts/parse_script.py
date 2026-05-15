@@ -15,7 +15,7 @@ def _slugify(text: str, index: int) -> str:
     return f"beat-{index:02d}-{text}"
 
 
-def parse_script_str(content: str) -> list[dict]:
+def parse_script_str(content: str) -> dict:
     beats: list[dict] = []
     lines = content.splitlines()
 
@@ -52,10 +52,10 @@ def parse_script_str(content: str) -> list[dict]:
             }
         )
 
-    return beats
+    return {"beats": beats, "cuts": []}
 
 
-def parse_script(path: Path) -> list[dict]:
+def parse_script(path: Path) -> dict:
     return parse_script_str(path.read_text())
 
 

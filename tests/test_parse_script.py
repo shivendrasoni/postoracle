@@ -13,45 +13,54 @@ FIXTURE = """\
 [Text: "Work smarter"]
 """
 
+def test_returns_dict_with_expected_keys():
+    result = parse_script_str(FIXTURE)
+    assert "beats" in result and "cuts" in result
+
+def test_cuts_always_empty():
+    result = parse_script_str(FIXTURE)
+    assert result["cuts"] == []
+
 def test_extracts_three_beats():
-    beats = parse_script_str(FIXTURE)
-    assert len(beats) == 3
+    result = parse_script_str(FIXTURE)
+    assert len(result["beats"]) == 3
 
 def test_first_beat_timecode_zero():
-    beats = parse_script_str(FIXTURE)
-    assert beats[0]["timecode_s"] == 0
+    result = parse_script_str(FIXTURE)
+    assert result["beats"][0]["timecode_s"] == 0
 
 def test_second_beat_timecode():
-    beats = parse_script_str(FIXTURE)
-    assert beats[1]["timecode_s"] == 5
+    result = parse_script_str(FIXTURE)
+    assert result["beats"][1]["timecode_s"] == 5
 
 def test_third_beat_timecode():
-    beats = parse_script_str(FIXTURE)
-    assert beats[2]["timecode_s"] == 12
+    result = parse_script_str(FIXTURE)
+    assert result["beats"][2]["timecode_s"] == 12
 
 def test_visual_cue_extracted():
-    beats = parse_script_str(FIXTURE)
-    assert "phone" in beats[0]["visual_cue"].lower() or "stop" in beats[0]["visual_cue"].lower()
+    result = parse_script_str(FIXTURE)
+    assert "phone" in result["beats"][0]["visual_cue"].lower() or "stop" in result["beats"][0]["visual_cue"].lower()
 
 def test_second_beat_visual_cue():
-    beats = parse_script_str(FIXTURE)
-    assert "robot" in beats[1]["visual_cue"].lower()
+    result = parse_script_str(FIXTURE)
+    assert "robot" in result["beats"][1]["visual_cue"].lower()
 
 def test_beat_slug_starts_with_index():
-    beats = parse_script_str(FIXTURE)
-    assert beats[0]["beat_slug"].startswith("beat-00-")
-    assert beats[1]["beat_slug"].startswith("beat-01-")
+    result = parse_script_str(FIXTURE)
+    assert result["beats"][0]["beat_slug"].startswith("beat-00-")
+    assert result["beats"][1]["beat_slug"].startswith("beat-01-")
 
 def test_text_overlay_extracted():
-    beats = parse_script_str(FIXTURE)
-    assert "STOP" in beats[0]["text_overlay"] or beats[0]["text_overlay"] != ""
+    result = parse_script_str(FIXTURE)
+    assert "STOP" in result["beats"][0]["text_overlay"] or result["beats"][0]["text_overlay"] != ""
 
 def test_empty_script_returns_empty():
-    beats = parse_script_str("")
-    assert beats == []
+    result = parse_script_str("")
+    assert result["beats"] == []
+    assert result["cuts"] == []
 
 def test_visual_cue_falls_back_to_text_overlay():
     content = "(0:00) [Text: \"fallback text\"]"
-    beats = parse_script_str(content)
-    assert len(beats) == 1
-    assert beats[0]["visual_cue"] != ""
+    result = parse_script_str(content)
+    assert len(result["beats"]) == 1
+    assert result["beats"][0]["visual_cue"] != ""
