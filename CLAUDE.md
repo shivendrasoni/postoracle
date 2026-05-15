@@ -23,6 +23,7 @@ On the first user message of every conversation, display this banner before resp
   /brand-voice     Brand identity builder
   /analytics       Performance analytics
   /sync-instagram  Sync saved IG posts to vault
+  /repurpose       Repurpose saved post → original script
   /publish         Push to social platforms
 ```
 
@@ -44,6 +45,7 @@ After the banner, respond to whatever the user asked. If it's a greeting or open
 | `/analytics` | Pull IG + LI metrics, vault dashboards, performance insights |
 | `/publish` | Push content to Instagram, LinkedIn, X |
 | `/sync-instagram` | Sync saved Instagram posts into the vault |
+| `/repurpose <source>` | Repurpose saved post: transcribe → extract insight → original script → make-reel |
 | `/add-platform <name>` | Scaffold a new publishing platform |
 
 ## Dashboard
@@ -93,6 +95,7 @@ User → Slash Command → Pipeline Stages → Output
 | `scripts/create_session.py` | Session directory scaffolding |
 | `scripts/build_manifest.py` | Asset manifest builder |
 | `scripts/sync_instagram.py` | Instagram saved posts fetcher and vault writer |
+| `scripts/repurpose.py` | Source resolution, transcription orchestration, repurpose frontmatter |
 | `scripts/check_env.py` | Environment variable validator |
 | `scripts/video_edit/transcribe.py` | ElevenLabs Scribe transcription (word-level, for `--edit-raw`) |
 | `scripts/video_edit/pack_transcripts.py` | Word-level JSON → phrase-level markdown |
