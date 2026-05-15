@@ -28,6 +28,11 @@ export interface ComposeState {
   slides: SlideCount;
   avatarId?: string;
   voiceId?: string;
+  styleId?: string;
+  avatarName?: string;
+  voiceName?: string;
+  styleName?: string;
+  paramOverrides: Record<string, unknown>;
   attachments: string[];
   activeJobId: string | null;
   drawerOpen: boolean;
@@ -38,8 +43,11 @@ type ComposeAction =
   | { kind: "SET_TOPIC"; topic: string }
   | { kind: "SET_PLATFORM"; platform: Platform }
   | { kind: "SET_SLIDES"; slides: SlideCount }
-  | { kind: "SET_AVATAR"; avatarId: string }
-  | { kind: "SET_VOICE"; voiceId: string }
+  | { kind: "SET_AVATAR"; avatarId: string; avatarName?: string }
+  | { kind: "SET_VOICE"; voiceId: string; voiceName?: string }
+  | { kind: "SET_STYLE"; styleId: string; styleName?: string }
+  | { kind: "SET_PARAM_OVERRIDE"; key: string; value: unknown }
+  | { kind: "CLEAR_PARAM_OVERRIDE"; key: string }
   | { kind: "ADD_ATTACHMENT"; url: string }
   | { kind: "REMOVE_ATTACHMENT"; index: number }
   | { kind: "START_JOB"; jobId: string }
@@ -51,6 +59,7 @@ const INITIAL_STATE: ComposeState = {
   topic: "",
   platform: "instagram",
   slides: 5,
+  paramOverrides: {},
   attachments: [],
   activeJobId: null,
   drawerOpen: false,
@@ -67,9 +76,17 @@ function composeReducer(state: ComposeState, action: ComposeAction): ComposeStat
     case "SET_SLIDES":
       return { ...state, slides: action.slides };
     case "SET_AVATAR":
-      return { ...state, avatarId: action.avatarId };
+      return { ...state, avatarId: action.avatarId, avatarName: action.avatarName };
     case "SET_VOICE":
-      return { ...state, voiceId: action.voiceId };
+      return { ...state, voiceId: action.voiceId, voiceName: action.voiceName };
+    case "SET_STYLE":
+      return { ...state, styleId: action.styleId, styleName: action.styleName };
+    case "SET_PARAM_OVERRIDE":
+      return { ...state, paramOverrides: { ...state.paramOverrides, [action.key]: action.value } };
+    case "CLEAR_PARAM_OVERRIDE": {
+      const { [action.key]: _, ...rest } = state.paramOverrides;
+      return { ...state, paramOverrides: rest };
+    }
     case "ADD_ATTACHMENT":
       return { ...state, attachments: [...state.attachments, action.url] };
     case "REMOVE_ATTACHMENT":
