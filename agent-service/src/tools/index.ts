@@ -116,8 +116,8 @@ const createSessionDef: ToolDefinition = {
       output_dir: {
         type: "string",
         description:
-          "Relative output directory under the project root (default: output/reels). " +
-          "Use output/carousels for carousels, output/posts for posts.",
+          "Relative output directory under the project root (default: vault/outputs/reels). " +
+          "Use vault/outputs/carousels for carousels, vault/outputs/posts for posts.",
       },
     },
     required: ["topic"],
@@ -682,7 +682,175 @@ const webResearchExec: ToolExecutor = async (input) => {
 };
 
 // ---------------------------------------------------------------------------
-// 15. write_file
+// 15. analyse_prep
+// ---------------------------------------------------------------------------
+
+const analysePrepDef: ToolDefinition = {
+  name: "analyse_prep",
+  description:
+    "Prepare structured analysis data for a saved Instagram post. " +
+    "Returns JSON with engagement metrics, transcript, keyframe paths, and caption.",
+  input_schema: {
+    type: "object",
+    properties: {
+      shortcode: {
+        type: "string",
+        description: "Instagram post shortcode to analyse.",
+      },
+    },
+    required: ["shortcode"],
+  },
+};
+
+const analysePrepExec: ToolExecutor = async (input) => {
+  const result = await spawnPythonModule("scripts.analyse", [
+    "prep",
+    input.shortcode as string,
+  ]);
+  return formatResult(result);
+};
+
+// ---------------------------------------------------------------------------
+// 16. repurpose_resolve
+// ---------------------------------------------------------------------------
+
+const repurposeResolveDef: ToolDefinition = {
+  name: "repurpose_resolve",
+  description:
+    "Resolve a source identifier (shortcode, Instagram URL, or local path) " +
+    "to a video path and metadata for repurposing.",
+  input_schema: {
+    type: "object",
+    properties: {
+      source: {
+        type: "string",
+        description:
+          "Instagram shortcode, URL (https://instagram.com/reel/...), or local video path.",
+      },
+    },
+    required: ["source"],
+  },
+};
+
+const repurposeResolveExec: ToolExecutor = async (input) => {
+  const code = [
+    "import json, sys",
+    "sys.path.insert(0, '.')",
+    "from scripts.repurpose import resolve_source",
+    "result = resolve_source(sys.argv[1])",
+    "result['video_path'] = str(result['video_path'])",
+    "print(json.dumps(result, indent=2, default=str))",
+  ].join("; ");
+
+  return new Promise<string>((resolve, reject) => {
+    const proc = spawn(
+      "python3",
+      ["-c", code, input.source as string],
+      { cwd: PROJECT_ROOT, env: { ...process.env } },
+    );
+    let stdout = "";
+    let stderr = "";
+    proc.stdout.on("data", (d: Buffer) => (stdout += d));
+    proc.stderr.on("data", (d: Buffer) => (stderr += d));
+    proc.on("close", (exitCode) => {
+      resolve(formatResult({ stdout, stderr, exitCode: exitCode ?? 1 }));
+    });
+    proc.on("error", reject);
+  });
+};
+
+// ---------------------------------------------------------------------------
+// 17. repurpose_transcribe
+// ---------------------------------------------------------------------------
+
+const repurposeTranscribeDef: ToolDefinition = {
+  name: "repurpose_transcribe",
+  description:
+    "Transcribe a source video for repurposing. Returns the packed transcript text.",
+  input_schema: {
+    type: "object",
+    properties: {
+      video_path: {
+        type: "string",
+        description: "Absolute path to the source video file.",
+      },
+      work_dir: {
+        type: "string",
+        description: "Absolute path to the working/session directory for output.",
+      },
+    },
+    required: ["video_path", "work_dir"],
+  },
+};
+
+const repurposeTranscribeExec: ToolExecutor = async (input) => {
+  const code = [
+    "import json, sys",
+    "from pathlib import Path",
+    "sys.path.insert(0, '.')",
+    "from scripts.repurpose import transcribe_source",
+    "result = transcribe_source(Path(sys.argv[1]), Path(sys.argv[2]))",
+    "print(result)",
+  ].join("; ");
+
+  return new Promise<string>((resolve, reject) => {
+    const proc = spawn(
+      "python3",
+      ["-c", code, input.video_path as string, input.work_dir as string],
+      { cwd: PROJECT_ROOT, env: { ...process.env } },
+    );
+    let stdout = "";
+    let stderr = "";
+    proc.stdout.on("data", (d: Buffer) => (stdout += d));
+    proc.stderr.on("data", (d: Buffer) => (stderr += d));
+    proc.on("close", (exitCode) => {
+      resolve(formatResult({ stdout, stderr, exitCode: exitCode ?? 1 }));
+    });
+    proc.on("error", reject);
+  });
+};
+
+// ---------------------------------------------------------------------------
+// 18. composio_search
+// ---------------------------------------------------------------------------
+
+const composioSearchDef: ToolDefinition = {
+  name: "composio_search",
+  description:
+    "Search for Composio tool slugs for a platform. " +
+    "Returns available tools and their schemas for posting content.",
+  input_schema: {
+    type: "object",
+    properties: {
+      query: {
+        type: "string",
+        description: "Search query (e.g. 'post tiktok video', 'upload youtube').",
+      },
+    },
+    required: ["query"],
+  },
+};
+
+const composioSearchExec: ToolExecutor = async (input) => {
+  return new Promise<string>((resolve, reject) => {
+    const proc = spawn(
+      "composio",
+      ["search", input.query as string],
+      { cwd: PROJECT_ROOT, env: { ...process.env } },
+    );
+    let stdout = "";
+    let stderr = "";
+    proc.stdout.on("data", (d: Buffer) => (stdout += d));
+    proc.stderr.on("data", (d: Buffer) => (stderr += d));
+    proc.on("close", (exitCode) => {
+      resolve(formatResult({ stdout, stderr, exitCode: exitCode ?? 1 }));
+    });
+    proc.on("error", reject);
+  });
+};
+
+// ---------------------------------------------------------------------------
+// 19. write_file
 // ---------------------------------------------------------------------------
 
 const writeFileDef: ToolDefinition = {
@@ -770,6 +938,10 @@ export const toolDefinitions: ToolDefinition[] = [
   fetchImagesDef,
   checkEnvDef,
   webResearchDef,
+  analysePrepDef,
+  repurposeResolveDef,
+  repurposeTranscribeDef,
+  composioSearchDef,
   writeFileDef,
   readFileDef,
 ];
@@ -789,6 +961,10 @@ export const toolExecutors: Record<string, ToolExecutor> = {
   fetch_images: fetchImagesExec,
   check_env: checkEnvExec,
   web_research: webResearchExec,
+  analyse_prep: analysePrepExec,
+  repurpose_resolve: repurposeResolveExec,
+  repurpose_transcribe: repurposeTranscribeExec,
+  composio_search: composioSearchExec,
   write_file: writeFileExec,
   read_file: readFileExec,
 };

@@ -26,10 +26,9 @@ def test_slug_strips_special_chars():
     assert "!" not in slug
     assert " " not in slug
 
-def test_session_dir_is_inside_output_reels(tmp_path):
+def test_session_dir_is_inside_vault_outputs_reels(tmp_path):
     session_dir = create_session("topic", tmp_path)
-    assert "output" in str(session_dir)
-    assert "reels" in str(session_dir)
+    assert "vault/outputs/reels" in str(session_dir)
 
 def test_idempotent_on_existing_dir(tmp_path):
     create_session("topic", tmp_path)
@@ -44,8 +43,7 @@ def test_custom_output_dir_is_used(tmp_path):
     assert "reels" in str(session_dir)
 
 
-def test_default_output_dir_unchanged(tmp_path):
+def test_default_output_dir_is_vault_outputs(tmp_path):
     from scripts.create_session import create_session
     session_dir = create_session("topic", tmp_path)
-    assert "output" in str(session_dir)
-    assert "reels" in str(session_dir)
+    assert "vault/outputs/reels" in str(session_dir)
