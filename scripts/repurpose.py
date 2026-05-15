@@ -155,3 +155,17 @@ def transcribe_source(video_path: Path, work_dir: Path) -> Path:
     packed_path.write_text(markdown, encoding="utf-8")
 
     return packed_path
+
+
+def build_repurpose_frontmatter(source_meta: dict) -> dict:
+    """Build source_* frontmatter fields for a repurposed script."""
+    caption = source_meta.get("caption", "")
+    first_line = caption.split("\n")[0].strip() if caption else ""
+
+    return {
+        "source_shortcode": source_meta.get("shortcode", ""),
+        "source_url": source_meta.get("link", ""),
+        "source_author": source_meta.get("author", ""),
+        "source_title": first_line,
+        "repurposed": True,
+    }

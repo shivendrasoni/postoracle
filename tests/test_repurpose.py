@@ -7,7 +7,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from scripts.repurpose import resolve_source, _extract_shortcode_from_url, transcribe_source
+from scripts.repurpose import resolve_source, _extract_shortcode_from_url, transcribe_source, build_repurpose_frontmatter
 
 
 class TestResolveSourceShortcode:
@@ -253,3 +253,56 @@ class TestTranscribeSource:
         # transcribe_one is still called (it handles its own caching)
         mock_transcribe.assert_called_once()
         assert "cached" in result.read_text()
+
+
+class TestBuildRepurposeFrontmatter:
+    def test_builds_frontmatter_from_vault_source(self):
+        source_meta = {
+            "shortcode": "DI3RGhLNXPc",
+            "link": "https://www.instagram.com/reel/DI3RGhLNXPc/",
+            "author": "@namratarchawla",
+            "author_name": "Namrata Chawla",
+            "caption": "Some secret tips for Instagram right from the source.",
+            "view_count": 1188025,
+            "source_type": "vault",
+        }
+
+        fm = build_repurpose_frontmatter(source_meta)
+
+        assert fm["source_shortcode"] == "DI3RGhLNXPc"
+        assert fm["source_url"] == "https://www.instagram.com/reel/DI3RGhLNXPc/"
+        assert fm["source_author"] == "@namratarchawla"
+        assert fm["source_title"] == "Some secret tips for Instagram right from the source."
+        assert fm["repurposed"] is True
+
+    def test_builds_frontmatter_from_local_source(self):
+        source_meta = {
+            "shortcode": "",
+            "link": "",
+            "author": "",
+            "author_name": "",
+            "caption": "",
+            "view_count": 0,
+            "source_type": "local",
+        }
+
+        fm = build_repurpose_frontmatter(source_meta)
+
+        assert fm["source_shortcode"] == ""
+        assert fm["source_url"] == ""
+        assert fm["source_author"] == ""
+        assert fm["repurposed"] is True
+
+    def test_source_title_truncated_to_first_line(self):
+        source_meta = {
+            "shortcode": "ABC",
+            "link": "https://instagram.com/reel/ABC/",
+            "author": "@creator",
+            "author_name": "Creator",
+            "caption": "First line of caption\nSecond line\nThird line",
+            "view_count": 500,
+            "source_type": "vault",
+        }
+
+        fm = build_repurpose_frontmatter(source_meta)
+        assert fm["source_title"] == "First line of caption"
