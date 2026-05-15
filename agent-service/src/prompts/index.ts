@@ -7,7 +7,11 @@ import { ANGLE_AGENT_PROMPT } from "./angle.js";
 import { PUBLISH_AGENT_PROMPT } from "./publish.js";
 import { ANALYTICS_AGENT_PROMPT } from "./analytics.js";
 import { BRAND_AGENT_PROMPT } from "./brand.js";
-import type { ContentType } from "../types.js";
+import { ANALYSE_AGENT_PROMPT } from "./analyse.js";
+import { REPURPOSE_AGENT_PROMPT } from "./repurpose.js";
+import { IMPORT_TEMPLATE_AGENT_PROMPT } from "./import-template.js";
+import { ADD_PLATFORM_AGENT_PROMPT } from "./add-platform.js";
+import type { AgentType } from "../agents/config.js";
 
 const BASE_PROMPTS: Record<string, string> = {
   reel: REEL_AGENT_PROMPT,
@@ -18,6 +22,10 @@ const BASE_PROMPTS: Record<string, string> = {
   publish: PUBLISH_AGENT_PROMPT,
   analytics: ANALYTICS_AGENT_PROMPT,
   brand: BRAND_AGENT_PROMPT,
+  analyse: ANALYSE_AGENT_PROMPT,
+  repurpose: REPURPOSE_AGENT_PROMPT,
+  "import-template": IMPORT_TEMPLATE_AGENT_PROMPT,
+  "add-platform": ADD_PLATFORM_AGENT_PROMPT,
 };
 
 const PROJECT_ROOT = resolve(process.cwd(), "..");
@@ -55,7 +63,7 @@ function loadTemplateConfig(): string {
   return `\n\n# Template Config\n\n${content}`;
 }
 
-export function buildSystemPrompt(agentType: ContentType | string): string {
+export function buildSystemPrompt(agentType: AgentType | string): string {
   const base = BASE_PROMPTS[agentType];
   if (!base) throw new Error(`Unknown agent type: ${agentType}`);
 

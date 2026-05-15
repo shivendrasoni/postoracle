@@ -54,6 +54,17 @@ DEFAULTS: dict = {
         "script_mode": "shortform",
         "duration": 45,
     },
+    "analyse": {
+        "keyframe_count": 6,
+        "benchmarks": {
+            "lvr_strong": 3.0,
+            "lvr_average": 1.0,
+            "clr_strong": 1.0,
+            "clr_average": 0.5,
+            "er_strong": 3.0,
+            "er_average": 1.0,
+        },
+    },
 }
 
 

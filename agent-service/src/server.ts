@@ -18,8 +18,10 @@ import type {
   JobEvent,
   CreateJobRequest,
   RefineRequest,
-  ContentType,
+  AgentType,
 } from "./types.js";
+import { AGENT_TOOLS } from "./agents/config.js";
+import { buildUserMessage } from "./agents/user-message.js";
 import { toolDefinitions, toolExecutors } from "./tools/index.js";
 import { buildSystemPrompt } from "./prompts/index.js";
 
@@ -79,19 +81,8 @@ function createStreamDelta(job: Job): (text: string) => void {
 // Tool definitions — loaded from tools/index.ts
 // ---------------------------------------------------------------------------
 
-const AGENT_TOOL_NAMES: Record<string, string[]> = {
-  reel: ["web_research", "create_session", "write_file", "read_file", "fetch_broll", "fetch_images", "registry_add"],
-  carousel: ["web_research", "create_session", "write_file", "read_file", "generate_carousel", "registry_add"],
-  post: ["web_research", "create_session", "write_file", "read_file", "generate_post", "registry_add"],
-  angle: ["web_research", "write_file", "read_file"],
-  script: ["web_research", "write_file", "read_file"],
-  publish: ["read_file", "registry_read", "publish_platform"],
-  analytics: ["pull_metrics", "registry_read", "read_file", "write_file"],
-  brand: ["brand_read", "brand_write", "brand_compile", "read_file", "write_file"],
-};
-
-function getToolsForType(type: ContentType): Tool[] {
-  const allowedNames = AGENT_TOOL_NAMES[type] ?? [];
+function getToolsForType(type: AgentType): Tool[] {
+  const allowedNames = AGENT_TOOLS[type] ?? [];
   return toolDefinitions
     .filter((t) => allowedNames.includes(t.name))
     .map((t) => ({
@@ -124,7 +115,7 @@ async function executeTool(
 // ---------------------------------------------------------------------------
 // System prompt — loaded from prompts/index.ts with dynamic brand context
 // ---------------------------------------------------------------------------
-function getSystemPrompt(type: ContentType, _topic: string): string {
+function getSystemPrompt(type: AgentType, _topic: string): string {
   return buildSystemPrompt(type);
 }
 
@@ -141,7 +132,7 @@ async function runAgentPipeline(
   const tools = getToolsForType(job.type);
   const systemPrompt = getSystemPrompt(job.type, job.topic);
   const messages: MessageParam[] = [
-    { role: "user", content: `Create a ${job.type} about: ${job.topic}` },
+    { role: "user", content: buildUserMessage(job) },
   ];
 
   broadcast({ type: "stage", stage: "initializing", status: "complete" });

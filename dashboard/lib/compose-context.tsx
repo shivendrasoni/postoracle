@@ -8,7 +8,16 @@ import {
   type ReactNode,
 } from "react";
 
-export type ContentType = "reel" | "carousel" | "post" | "angle";
+export type ContentType =
+  | "reel"
+  | "carousel"
+  | "post"
+  | "angle"
+  | "script"
+  | "analyse"
+  | "repurpose"
+  | "import-template"
+  | "add-platform";
 export type Platform = "instagram" | "linkedin" | "x";
 export type SlideCount = 5 | 6;
 

@@ -199,16 +199,15 @@ export default function ComposeHome({ entries, saves = [], agentReady = false }:
                         Repurpose
                       </button>
                       <a
-                        href={post.link || "#"}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        href={`/saves/${post.shortcode}`}
                         title="Analyse"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full
-                          bg-white/[0.04] text-sub text-[11px] font-medium
-                          border border-white/[0.08]
-                          transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
-                          hover:bg-white/[0.08] hover:border-white/[0.12]
-                          active:scale-[0.96]"
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium
+                          border transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
+                          active:scale-[0.96] ${
+                            post.analysed_at
+                              ? "bg-accent/10 text-accent border-accent/20 hover:bg-accent/20 hover:border-accent/30"
+                              : "bg-white/[0.04] text-sub border-white/[0.08] hover:bg-white/[0.08] hover:border-white/[0.12]"
+                          }`}
                       >
                         <ChartBar size={12} weight="bold" />
                         Analyse

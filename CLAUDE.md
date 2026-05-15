@@ -45,6 +45,7 @@ After the banner, respond to whatever the user asked. If it's a greeting or open
 | `/analytics` | Pull IG + LI metrics, vault dashboards, performance insights |
 | `/publish` | Push content to Instagram, LinkedIn, X |
 | `/sync-instagram` | Sync saved Instagram posts into the vault |
+| `/analyse <shortcode>` | Analyse a saved post — engagement, script, visual, angle, brand fit. `--refresh` to re-run |
 | `/repurpose <source>` | Repurpose saved post: transcribe → extract insight → original script → make-reel |
 | `/add-platform <name>` | Scaffold a new publishing platform |
 
@@ -84,6 +85,7 @@ User → Slash Command → Pipeline Stages → Output
 | `scripts/generate_post.py` | Single-image post generator (GPT-image-2) |
 | `scripts/brand_voice.py` | Brand module read/write/compile/status CLI |
 | `scripts/analytics.py` | IG + LinkedIn analytics via Composio, performance scoring |
+| `scripts/analyse.py` | Saved post analysis prep (engagement metrics, transcription, keyframes) |
 | `scripts/registry.py` | Content registry (JSON-backed tracking) |
 | `scripts/parse_angle.py` | Angle file parser (YAML frontmatter) |
 | `scripts/parse_script.py` | Script file → beats JSON parser |

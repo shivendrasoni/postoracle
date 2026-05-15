@@ -51,6 +51,17 @@ export interface SavedPost {
   comment_count: number;
   view_count: number;
   downloaded: boolean;
+
+  // Analysis fields (optional — only present if post has been analysed)
+  analysed_at?: string;
+  analysis_version?: number;
+  overall_score?: number;
+  content_verdict?: "recreate" | "skip" | "adapt";
+  angle?: string;
+  hook_pattern?: string;
+  format_type?: string;
+  brand_alignment?: number;
+  analysis_body?: string; // The raw markdown under ## Analysis
 }
 
 export interface CarouselTemplate {

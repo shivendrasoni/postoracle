@@ -17,6 +17,7 @@ import {
   ArrowsClockwise,
   ChartBar,
 } from "@phosphor-icons/react";
+import AnalysisPanel from "@/components/analysis-panel";
 
 const TYPE_ICONS: Record<string, typeof FilmStrip> = {
   reel: FilmStrip,
@@ -24,7 +25,7 @@ const TYPE_ICONS: Record<string, typeof FilmStrip> = {
   post: Article,
 };
 
-type SortKey = "date" | "views" | "likes";
+type SortKey = "date" | "views" | "likes" | "score";
 
 function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -58,6 +59,14 @@ export default function SavesTable({ posts }: SavesTableProps) {
   const sorted = [...filtered].sort((a, b) => {
     if (sortBy === "views") return b.view_count - a.view_count;
     if (sortBy === "likes") return b.like_count - a.like_count;
+    if (sortBy === "score") {
+      const aHas = a.overall_score != null;
+      const bHas = b.overall_score != null;
+      if (aHas && !bHas) return -1;
+      if (!aHas && bHas) return 1;
+      if (!aHas && !bHas) return 0;
+      return b.overall_score! - a.overall_score!;
+    }
     return (
       new Date(b.synced_at).getTime() - new Date(a.synced_at).getTime()
     );
@@ -67,8 +76,9 @@ export default function SavesTable({ posts }: SavesTableProps) {
     date: "Newest",
     views: "Most viewed",
     likes: "Most liked",
+    score: "Top scored",
   };
-  const sortCycle: SortKey[] = ["date", "views", "likes"];
+  const sortCycle: SortKey[] = ["date", "views", "likes", "score"];
 
   function cycleSortBy() {
     const idx = sortCycle.indexOf(sortBy);
@@ -199,6 +209,19 @@ export default function SavesTable({ posts }: SavesTableProps) {
                         {formatNumber(post.comment_count)}
                       </span>
                     )}
+                    {post.overall_score != null && (
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold tabular-nums ${
+                          post.overall_score >= 8
+                            ? "text-emerald bg-emerald-soft"
+                            : post.overall_score >= 5
+                              ? "text-amber bg-amber-soft"
+                              : "text-accent bg-accent-soft"
+                        }`}
+                      >
+                        {post.overall_score.toFixed(1)}
+                      </span>
+                    )}
                   </div>
 
                   {/* Action buttons — visible on hover */}
@@ -220,16 +243,15 @@ export default function SavesTable({ posts }: SavesTableProps) {
                       Repurpose
                     </a>
                     <a
-                      href={post.link || "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Analyse"
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full
-                        bg-white/[0.04] text-sub text-[11px] font-medium
-                        border border-white/[0.08]
-                        transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
-                        hover:bg-white/[0.08] hover:border-white/[0.12]
-                        active:scale-[0.96]"
+                      href={`/saves/${post.shortcode}`}
+                      title={post.analysed_at ? "View Analysis" : "Analyse this post"}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium
+                        border transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
+                        active:scale-[0.96] ${
+                          post.analysed_at
+                            ? "bg-accent/10 text-accent border-accent/20 hover:bg-accent/20 hover:border-accent/30"
+                            : "bg-white/[0.04] text-sub border-white/[0.08] hover:bg-white/[0.08] hover:border-white/[0.12]"
+                        }`}
                     >
                       <ChartBar size={12} weight="bold" />
                       Analyse
@@ -259,7 +281,11 @@ export default function SavesTable({ posts }: SavesTableProps) {
                 <div
                   className="overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
                   style={{
-                    maxHeight: isExpanded ? "400px" : "0",
+                    maxHeight: isExpanded
+                      ? post.analysis_body
+                        ? "2000px"
+                        : "400px"
+                      : "0",
                     opacity: isExpanded ? 1 : 0,
                   }}
                 >
@@ -339,6 +365,13 @@ export default function SavesTable({ posts }: SavesTableProps) {
                       <p className="mt-3 text-[12px] text-sub leading-relaxed line-clamp-3">
                         {post.caption}
                       </p>
+                    )}
+
+                    {/* Analysis panel */}
+                    {post.analysed_at && (
+                      <div className="mt-5">
+                        <AnalysisPanel post={post} />
+                      </div>
                     )}
                   </div>
                 </div>

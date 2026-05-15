@@ -161,9 +161,9 @@ export default function Sidebar() {
                 {group.entries.map((entry) => {
                   const Icon = TYPE_ICONS[entry.type] ?? File;
                   return (
-                    <button
+                    <Link
                       key={entry.id}
-                      type="button"
+                      href={`/vault/${entry.session_dir.replace("vault/", "")}`}
                       className="
                         w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left
                         transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
@@ -179,7 +179,7 @@ export default function Sidebar() {
                       <span className="text-[12px] truncate leading-tight">
                         {entry.topic}
                       </span>
-                    </button>
+                    </Link>
                   );
                 })}
               </div>

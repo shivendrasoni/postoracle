@@ -47,14 +47,34 @@ async function loadPlatformSaves(dirName: string): Promise<SavedPost[]> {
     let caption = "";
     let fm: Record<string, unknown> = {};
 
+    let analysisBody: string | undefined;
+
     try {
       const mdContent = await readVaultFile(mdPath);
       const parsed = matter(mdContent);
       fm = parsed.data;
-      caption = parsed.content.trim();
+
+      // Split content on "## Analysis" to separate caption from analysis body
+      const rawContent = parsed.content;
+      const analysisSplit = rawContent.split("## Analysis");
+
+      if (analysisSplit.length > 1) {
+        // Caption is everything before ## Analysis, strip trailing --- separator
+        caption = analysisSplit[0]
+          .trim()
+          .replace(/\n---\s*$/, "")
+          .trim();
+        // Analysis body is everything after ## Analysis
+        analysisBody = analysisSplit.slice(1).join("## Analysis").trim();
+      } else {
+        caption = rawContent.trim();
+      }
     } catch {
       // frontmatter unavailable — use index data only
     }
+
+    const verdict = fm.content_verdict as string | undefined;
+    const validVerdicts = ["recreate", "skip", "adapt"] as const;
 
     posts.push({
       shortcode,
@@ -72,10 +92,29 @@ async function loadPlatformSaves(dirName: string): Promise<SavedPost[]> {
       comment_count: (fm.comment_count as number) ?? 0,
       view_count: (fm.view_count as number) ?? 0,
       downloaded: entry.downloaded ?? false,
+      // Analysis fields
+      analysed_at: (fm.analysed_at as string) ?? undefined,
+      analysis_version: (fm.analysis_version as number) ?? undefined,
+      overall_score: (fm.overall_score as number) ?? undefined,
+      content_verdict: verdict && validVerdicts.includes(verdict as typeof validVerdicts[number])
+        ? (verdict as "recreate" | "skip" | "adapt")
+        : undefined,
+      angle: (fm.angle as string) ?? undefined,
+      hook_pattern: (fm.hook_pattern as string) ?? undefined,
+      format_type: (fm.format_type as string) ?? undefined,
+      brand_alignment: (fm.brand_alignment as number) ?? undefined,
+      analysis_body: analysisBody,
     });
   }
 
   return posts;
+}
+
+export async function loadSaveByShortcode(
+  shortcode: string
+): Promise<SavedPost | null> {
+  const all = await loadAllSaves();
+  return all.find((p) => p.shortcode === shortcode) ?? null;
 }
 
 export async function loadAllSaves(): Promise<SavedPost[]> {

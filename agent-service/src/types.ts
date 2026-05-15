@@ -1,9 +1,11 @@
-export type ContentType = "reel" | "carousel" | "post" | "angle" | "script";
+import type { AgentType } from "./agents/config.js";
+
+export type { AgentType };
 export type Platform = "instagram" | "linkedin" | "x";
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 
 export interface CreateJobRequest {
-  type: ContentType;
+  type: AgentType;
   topic: string;
   platform?: Platform;
   slides?: 5 | 6;
@@ -12,11 +14,12 @@ export interface CreateJobRequest {
   fromAngle?: string;
   attachments?: string[];
   autoPublish?: string;
+  params?: Record<string, unknown>;
 }
 
 export interface Job {
   id: string;
-  type: ContentType;
+  type: AgentType;
   topic: string;
   status: JobStatus;
   createdAt: string;

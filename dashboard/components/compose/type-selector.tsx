@@ -7,6 +7,11 @@ import {
   Article,
   Compass,
   CaretDown,
+  ChartBar,
+  ArrowsClockwise,
+  ImageSquare,
+  PlusCircle,
+  FileText,
 } from "@phosphor-icons/react";
 import type { ContentType } from "@/lib/compose-context";
 
@@ -19,6 +24,11 @@ const TYPE_OPTIONS: {
   { value: "carousel", label: "Carousel", Icon: Images },
   { value: "post", label: "Post", Icon: Article },
   { value: "angle", label: "Angle", Icon: Compass },
+  { value: "script", label: "Script", Icon: FileText },
+  { value: "analyse", label: "Analyse", Icon: ChartBar },
+  { value: "repurpose", label: "Repurpose", Icon: ArrowsClockwise },
+  { value: "import-template", label: "Template", Icon: ImageSquare },
+  { value: "add-platform", label: "Platform", Icon: PlusCircle },
 ];
 
 interface TypeSelectorProps {

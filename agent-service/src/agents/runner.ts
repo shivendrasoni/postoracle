@@ -1,40 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { buildSystemPrompt } from "../prompts/index.js";
 import { toolDefinitions, toolExecutors } from "../tools/index.js";
-import type { Job, JobEvent, ContentType } from "../types.js";
-
-const AGENT_TOOLS: Record<string, string[]> = {
-  reel: [
-    "web_research", "create_session", "write_file", "read_file",
-    "fetch_broll", "fetch_images", "registry_add",
-  ],
-  carousel: [
-    "web_research", "create_session", "write_file", "read_file",
-    "generate_carousel", "registry_add",
-  ],
-  post: [
-    "web_research", "create_session", "write_file", "read_file",
-    "generate_post", "registry_add",
-  ],
-  angle: [
-    "web_research", "write_file", "read_file",
-  ],
-  script: [
-    "web_research", "write_file", "read_file",
-  ],
-  publish: [
-    "read_file", "registry_read", "publish_platform",
-  ],
-  analytics: [
-    "pull_metrics", "registry_read", "read_file", "write_file",
-  ],
-  brand: [
-    "brand_read", "brand_write", "brand_compile", "read_file", "write_file",
-  ],
-};
+import { AGENT_TOOLS } from "./config.js";
+import { buildUserMessage } from "./user-message.js";
+import type { Job, JobEvent, AgentType } from "../types.js";
 
 function getToolsForAgent(agentType: string) {
-  const allowedTools = AGENT_TOOLS[agentType] ?? [];
+  const allowedTools = AGENT_TOOLS[agentType as AgentType] ?? [];
   return toolDefinitions.filter((t) => allowedTools.includes(t.name));
 }
 
@@ -140,30 +112,3 @@ export async function runAgentPipeline({ job, broadcast, apiKey }: RunnerOptions
   }
 }
 
-function buildUserMessage(job: Job): string {
-  const parts = [`Create a ${job.type} about: ${job.topic}`];
-
-  if (job.config.platform) {
-    parts.push(`Platform: ${job.config.platform}`);
-  }
-  if (job.config.slides) {
-    parts.push(`Slides: ${job.config.slides}`);
-  }
-  if (job.config.avatarId) {
-    parts.push(`Avatar ID: ${job.config.avatarId}`);
-  }
-  if (job.config.voiceId) {
-    parts.push(`Voice ID: ${job.config.voiceId}`);
-  }
-  if (job.config.fromAngle) {
-    parts.push(`Use existing angle from: ${job.config.fromAngle}`);
-  }
-  if (job.config.attachments?.length) {
-    parts.push(`Attachments: ${job.config.attachments.join(", ")}`);
-  }
-  if (job.config.autoPublish) {
-    parts.push(`Auto-publish to: ${job.config.autoPublish}`);
-  }
-
-  return parts.join("\n");
-}
