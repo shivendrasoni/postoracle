@@ -10,6 +10,7 @@ import {
   Stack,
 } from "@phosphor-icons/react";
 import type { ContentType, Platform, SlideCount } from "@/lib/compose-context";
+import HeygenPicker from "./heygen-picker";
 
 interface ControlPillsProps {
   type: ContentType;
@@ -17,8 +18,15 @@ interface ControlPillsProps {
   slides: SlideCount;
   avatarId?: string;
   voiceId?: string;
+  avatarName?: string;
+  voiceName?: string;
+  styleId?: string;
+  styleName?: string;
   onPlatformChange: (platform: Platform) => void;
   onSlidesChange: (slides: SlideCount) => void;
+  onAvatarSelect: (id: string, name: string) => void;
+  onVoiceSelect: (id: string, name: string) => void;
+  onStyleSelect: (id: string, name: string) => void;
 }
 
 function Pill({
@@ -79,14 +87,50 @@ function PlatformPill({
   );
 }
 
+interface AvatarData { name: string; groupId: string; voiceName: string }
+interface VoiceData { voice_id: string; name: string; language?: string; gender?: string }
+interface StyleData { style_id: string; name: string; thumbnail_url?: string; tags?: string[] }
+
+function mapAvatars(data: unknown[]): { id: string; name: string; subtitle?: string }[] {
+  return (data as AvatarData[]).map((a) => ({
+    id: a.groupId,
+    name: a.name,
+    subtitle: `Voice: ${a.voiceName}`,
+  }));
+}
+
+function mapVoices(data: unknown[]): { id: string; name: string; subtitle?: string }[] {
+  return (data as VoiceData[]).map((v) => ({
+    id: v.voice_id,
+    name: v.name,
+    subtitle: [v.language, v.gender].filter(Boolean).join(" · "),
+  }));
+}
+
+function mapStyles(data: unknown[]): { id: string; name: string; subtitle?: string; thumbnail?: string }[] {
+  return (data as StyleData[]).map((s) => ({
+    id: s.style_id,
+    name: s.name,
+    thumbnail: s.thumbnail_url,
+    subtitle: s.tags?.join(", "),
+  }));
+}
+
 export default function ControlPills({
   type,
   platform,
   slides,
   avatarId,
   voiceId,
+  avatarName,
+  voiceName,
+  styleId,
+  styleName,
   onPlatformChange,
   onSlidesChange,
+  onAvatarSelect,
+  onVoiceSelect,
+  onStyleSelect,
 }: ControlPillsProps) {
   return (
     <div
@@ -98,28 +142,60 @@ export default function ControlPills({
       {/* Reel pills */}
       {type === "reel" && (
         <>
-          <Pill>
-            <User size={13} weight="light" />
-            {avatarId ? "Avatar" : "Avatar"}
-          </Pill>
-          <Pill>
-            <Microphone size={13} weight="light" />
-            {voiceId ? "Voice" : "Voice"}
-          </Pill>
-          <Pill>
-            <Palette size={13} weight="light" />
-            Style
-          </Pill>
+          <HeygenPicker
+            apiUrl="/api/heygen/avatars"
+            mapFn={mapAvatars}
+            selectedId={avatarId}
+            onSelect={onAvatarSelect}
+            emptyLabel="No avatars found — run /heygen-avatar first"
+          >
+            <Pill active={!!avatarId}>
+              <User size={13} weight={avatarId ? "fill" : "light"} />
+              {avatarName ? `Avatar: ${avatarName}` : "Avatar"}
+            </Pill>
+          </HeygenPicker>
+          <HeygenPicker
+            apiUrl="/api/heygen/voices"
+            mapFn={mapVoices}
+            selectedId={voiceId}
+            onSelect={onVoiceSelect}
+            emptyLabel="No voices available"
+          >
+            <Pill active={!!voiceId}>
+              <Microphone size={13} weight={voiceId ? "fill" : "light"} />
+              {voiceName ? `Voice: ${voiceName}` : "Voice"}
+            </Pill>
+          </HeygenPicker>
+          <HeygenPicker
+            apiUrl="/api/heygen/styles"
+            mapFn={mapStyles}
+            selectedId={styleId}
+            onSelect={onStyleSelect}
+            emptyLabel="No styles available"
+          >
+            <Pill active={!!styleId}>
+              <Palette size={13} weight={styleId ? "fill" : "light"} />
+              {styleName ? `Style: ${styleName}` : "Style"}
+            </Pill>
+          </HeygenPicker>
         </>
       )}
 
       {/* Carousel pills */}
       {type === "carousel" && (
         <>
-          <Pill>
-            <Palette size={13} weight="light" />
-            Style
-          </Pill>
+          <HeygenPicker
+            apiUrl="/api/heygen/styles"
+            mapFn={mapStyles}
+            selectedId={styleId}
+            onSelect={onStyleSelect}
+            emptyLabel="No styles available"
+          >
+            <Pill active={!!styleId}>
+              <Palette size={13} weight={styleId ? "fill" : "light"} />
+              {styleName ? `Style: ${styleName}` : "Style"}
+            </Pill>
+          </HeygenPicker>
           <div className="flex items-center gap-0.5 rounded-full bg-white/[0.03] border border-white/[0.06] p-0.5">
             <PlatformPill platform="instagram" current={platform} onClick={() => onPlatformChange("instagram")} />
             <PlatformPill platform="linkedin" current={platform} onClick={() => onPlatformChange("linkedin")} />
@@ -140,10 +216,18 @@ export default function ControlPills({
       {/* Post pills */}
       {type === "post" && (
         <>
-          <Pill>
-            <Palette size={13} weight="light" />
-            Style
-          </Pill>
+          <HeygenPicker
+            apiUrl="/api/heygen/styles"
+            mapFn={mapStyles}
+            selectedId={styleId}
+            onSelect={onStyleSelect}
+            emptyLabel="No styles available"
+          >
+            <Pill active={!!styleId}>
+              <Palette size={13} weight={styleId ? "fill" : "light"} />
+              {styleName ? `Style: ${styleName}` : "Style"}
+            </Pill>
+          </HeygenPicker>
           <div className="flex items-center gap-0.5 rounded-full bg-white/[0.03] border border-white/[0.06] p-0.5">
             <PlatformPill platform="instagram" current={platform} onClick={() => onPlatformChange("instagram")} />
             <PlatformPill platform="linkedin" current={platform} onClick={() => onPlatformChange("linkedin")} />
