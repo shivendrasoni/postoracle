@@ -35,6 +35,24 @@ export interface BrandModule {
   isEmpty: boolean;
 }
 
+export interface SavedPost {
+  shortcode: string;
+  platform: string;
+  type: string;
+  link: string;
+  author: string;
+  author_name: string;
+  caption: string;
+  collection: string;
+  date_published: string;
+  date_saved: string;
+  synced_at: string;
+  like_count: number;
+  comment_count: number;
+  view_count: number;
+  downloaded: boolean;
+}
+
 export interface CarouselTemplate {
   name: string;
   source: string;

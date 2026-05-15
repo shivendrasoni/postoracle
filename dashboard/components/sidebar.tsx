@@ -15,6 +15,7 @@ import {
   Article,
   File,
   GearSix,
+  BookmarkSimple,
 } from "@phosphor-icons/react";
 import type { RegistryEntry } from "@/lib/types";
 import { useCompose } from "@/lib/compose-context";
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { href: "/content", label: "Content", Icon: Rows },
   { href: "/analytics", label: "Analytics", Icon: ChartLineUp },
   { href: "/brand", label: "Brand", Icon: Palette },
+  { href: "/saves", label: "Saves", Icon: BookmarkSimple },
   { href: "/vault", label: "Vault", Icon: FolderLock },
   { href: "/settings", label: "Settings", Icon: GearSix },
 ];

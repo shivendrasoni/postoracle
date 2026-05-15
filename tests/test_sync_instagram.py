@@ -9,9 +9,10 @@ import pytest
 from scripts.sync_instagram import build_headers, validate_session, InstagramSessionError
 from scripts.sync_instagram import parse_saved_post, parse_media_type, fetch_saved_posts_page
 from scripts.sync_instagram import fetch_media_info
+from scripts.sync_instagram import _extract_video_url
 from scripts.sync_instagram import Index
 from scripts.sync_instagram import generate_markdown, write_post_file
-from scripts.sync_instagram import sync_saved_posts
+from scripts.sync_instagram import sync_saved_posts, download_videos
 from scripts.sync_instagram import parse_collection, sync_all_collections
 
 
@@ -67,6 +68,10 @@ SAMPLE_REEL_ITEM = {
         "like_count": 10000,
         "comment_count": 200,
         "play_count": 50000,
+        "video_versions": [
+            {"url": "https://example.com/video_hd.mp4", "width": 1080, "height": 1920},
+            {"url": "https://example.com/video_sd.mp4", "width": 540, "height": 960},
+        ],
     }
 }
 
@@ -115,6 +120,7 @@ class TestParseSavedPost:
         assert result["type"] == "reel"
         assert result["link"] == "https://www.instagram.com/reel/DKreel99/"
         assert result["view_count"] == 50000
+        assert result["video_url"] == "https://example.com/video_hd.mp4"
 
     def test_handles_missing_caption(self):
         result = parse_saved_post(SAMPLE_SINGLE_ITEM)
@@ -140,6 +146,31 @@ class TestParseSavedPost:
         result = parse_saved_post(item_with_zero, headers={"fake": "h"})
         assert result["comment_count"] == 87
         assert result["view_count"] == 120000
+        mock_info.assert_called_once()
+
+    @patch("scripts.sync_instagram.fetch_media_info")
+    def test_fetches_video_url_from_detail_when_missing(self, mock_info):
+        mock_info.return_value = {
+            "comment_count": 200,
+            "play_count": 50000,
+            "video_versions": [{"url": "https://example.com/detail_video.mp4"}],
+        }
+        item_no_video = {
+            "media": {
+                "code": "DKreel99",
+                "pk": "3456789012",
+                "caption": {"text": "Watch this reel"},
+                "media_type": 2,
+                "product_type": "clips",
+                "user": {"username": "reelmaker"},
+                "taken_at": 1715300000,
+                "like_count": 10000,
+                "comment_count": 200,
+                "play_count": 50000,
+            }
+        }
+        result = parse_saved_post(item_no_video, headers={"fake": "h"})
+        assert result["video_url"] == "https://example.com/detail_video.mp4"
         mock_info.assert_called_once()
 
     def test_skips_media_info_when_no_headers(self):
@@ -383,3 +414,114 @@ class TestSyncAllCollections:
             filter_name="Copywriting",
         )
         assert mock_sync.call_count == 1
+
+
+class TestExtractVideoUrl:
+    def test_reel_returns_highest_res(self):
+        media = SAMPLE_REEL_ITEM["media"]
+        assert _extract_video_url(media) == "https://example.com/video_hd.mp4"
+
+    def test_image_post_returns_empty(self):
+        media = SAMPLE_SINGLE_ITEM["media"]
+        assert _extract_video_url(media) == ""
+
+    def test_carousel_returns_empty(self):
+        media = SAMPLE_ITEM["media"]
+        assert _extract_video_url(media) == ""
+
+    def test_empty_video_versions(self):
+        assert _extract_video_url({"video_versions": []}) == ""
+
+
+class TestIndexDownloadPreservation:
+    def test_add_preserves_downloaded_on_re_add(self, tmp_path):
+        idx = Index(tmp_path / "_index.json")
+        idx.add("ABC123", "file.md", video_url="https://example.com/v.mp4", post_type="reel")
+        idx.entries["ABC123"]["downloaded"] = True
+        idx.entries["ABC123"]["video_file"] = "ABC123.mp4"
+        idx.entries["ABC123"]["downloaded_at"] = "2026-05-15T00:00:00Z"
+
+        idx.add("ABC123", "file.md", video_url="https://example.com/v2.mp4", post_type="reel")
+        assert idx.entries["ABC123"]["downloaded"] is True
+        assert idx.entries["ABC123"]["video_file"] == "ABC123.mp4"
+        assert idx.entries["ABC123"]["video_url"] == "https://example.com/v2.mp4"
+
+    def test_image_post_has_no_download_fields(self, tmp_path):
+        idx = Index(tmp_path / "_index.json")
+        idx.add("IMG001", "img.md", video_url="", post_type="post")
+        assert "downloaded" not in idx.entries["IMG001"]
+        assert "video_url" not in idx.entries["IMG001"]
+
+    def test_add_with_video_url_sets_downloaded_false(self, tmp_path):
+        idx = Index(tmp_path / "_index.json")
+        idx.add("VID001", "vid.md", video_url="https://example.com/v.mp4", post_type="reel")
+        assert idx.entries["VID001"]["downloaded"] is False
+        assert idx.entries["VID001"]["video_url"] == "https://example.com/v.mp4"
+
+
+class TestDownloadVideos:
+    def test_downloads_pending_videos(self, tmp_path):
+        idx = Index(tmp_path / "_index.json")
+        idx.add("VID001", "vid.md", video_url="https://example.com/v.mp4", post_type="reel")
+        idx.save()
+
+        fake_video = b"\x00\x00\x00\x1cftypisom"
+        with patch("urllib.request.urlopen") as mock_open:
+            mock_resp = mock_open.return_value.__enter__.return_value
+            mock_resp.read.return_value = fake_video
+
+            result = download_videos(index_path=tmp_path / "_index.json", vault_dir=tmp_path)
+
+        assert result["downloaded"] == 1
+        assert (tmp_path / "videos" / "VID001.mp4").exists()
+        assert (tmp_path / "videos" / "VID001.mp4").read_bytes() == fake_video
+
+        reloaded = Index(tmp_path / "_index.json")
+        assert reloaded.entries["VID001"]["downloaded"] is True
+        assert reloaded.entries["VID001"]["video_file"] == "videos/VID001.mp4"
+
+    def test_skips_already_downloaded(self, tmp_path):
+        idx = Index(tmp_path / "_index.json")
+        idx.add("VID001", "vid.md", video_url="https://example.com/v.mp4", post_type="reel")
+        idx.entries["VID001"]["downloaded"] = True
+        idx.entries["VID001"]["video_file"] = "VID001.mp4"
+        idx.save()
+
+        with patch("urllib.request.urlopen") as mock_open:
+            result = download_videos(index_path=tmp_path / "_index.json", vault_dir=tmp_path)
+            mock_open.assert_not_called()
+
+        assert result["downloaded"] == 0
+
+    def test_skips_entries_without_video_url(self, tmp_path):
+        idx = Index(tmp_path / "_index.json")
+        idx.add("IMG001", "img.md", video_url="", post_type="post")
+        idx.save()
+
+        with patch("urllib.request.urlopen") as mock_open:
+            result = download_videos(index_path=tmp_path / "_index.json", vault_dir=tmp_path)
+            mock_open.assert_not_called()
+
+        assert result["downloaded"] == 0
+
+    def test_collects_errors_without_crashing(self, tmp_path):
+        idx = Index(tmp_path / "_index.json")
+        idx.add("VID001", "a.md", video_url="https://example.com/a.mp4", post_type="reel")
+        idx.add("VID002", "b.md", video_url="https://example.com/b.mp4", post_type="reel")
+        idx.save()
+
+        call_count = 0
+        def side_effect(*_args, **_kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise urllib.error.HTTPError("url", 403, "Forbidden", {}, None)
+            mock_ctx = type("Resp", (), {"read": lambda self: b"data", "__enter__": lambda self: self, "__exit__": lambda *a: None})()
+            return mock_ctx
+
+        import urllib.error
+        with patch("urllib.request.urlopen", side_effect=side_effect):
+            result = download_videos(index_path=tmp_path / "_index.json", vault_dir=tmp_path)
+
+        assert result["downloaded"] == 1
+        assert len(result["errors"]) == 1

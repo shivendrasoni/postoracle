@@ -120,8 +120,11 @@ def parse_saved_post(item: dict, headers: dict | None = None) -> dict:
 
     comment_count = media.get("comment_count", 0)
     view_count = media.get("play_count", 0) or media.get("view_count", 0)
+    video_url = _extract_video_url(media)
 
-    if headers and media_pk and (comment_count == 0 or view_count == 0):
+    needs_detail = (comment_count == 0 or view_count == 0
+                    or (post_type == "reel" and not video_url))
+    if headers and media_pk and needs_detail:
         detailed = fetch_media_info(headers, str(media_pk))
         if detailed:
             if comment_count == 0:
@@ -131,6 +134,8 @@ def parse_saved_post(item: dict, headers: dict | None = None) -> dict:
                     detailed.get("play_count", 0)
                     or detailed.get("view_count", 0)
                 )
+            if not video_url:
+                video_url = _extract_video_url(detailed)
             time.sleep(0.5)
 
     return {
@@ -145,6 +150,7 @@ def parse_saved_post(item: dict, headers: dict | None = None) -> dict:
         "comment_count": comment_count,
         "view_count": view_count,
         "thumbnail_url": _extract_thumbnail(media),
+        "video_url": video_url,
     }
 
 
@@ -153,6 +159,13 @@ def _extract_thumbnail(media: dict) -> str:
     if candidates:
         return candidates[0].get("url", "")
     return media.get("thumbnail_url", "")
+
+
+def _extract_video_url(media: dict) -> str:
+    versions = media.get("video_versions", [])
+    if versions:
+        return versions[0].get("url", "")
+    return ""
 
 
 def fetch_saved_posts_page(headers: dict, max_id: str = "") -> dict:
@@ -214,12 +227,21 @@ class Index:
     def has(self, shortcode: str) -> bool:
         return shortcode in self.entries
 
-    def add(self, shortcode: str, filename: str, collection: str = "") -> None:
-        self.entries[shortcode] = {
+    def add(self, shortcode: str, filename: str, collection: str = "",
+            video_url: str = "", post_type: str = "") -> None:
+        existing = self.entries.get(shortcode, {})
+        entry = {
             "file": filename,
             "collection": collection,
+            "type": post_type,
             "synced_at": datetime.now(timezone.utc).isoformat(),
         }
+        if video_url:
+            entry["video_url"] = video_url
+            entry["downloaded"] = existing.get("downloaded", False)
+            entry["video_file"] = existing.get("video_file", "")
+            entry["downloaded_at"] = existing.get("downloaded_at", "")
+        self.entries[shortcode] = entry
 
     def count(self) -> int:
         return len(self.entries)
@@ -256,6 +278,8 @@ def generate_markdown(post: dict, collection: str = "", date_saved: str = "") ->
         lines.append(f"view_count: {post['view_count']}")
     if post.get("thumbnail_url"):
         lines.append(f"thumbnail: {post['thumbnail_url']}")
+    if post.get("video_url"):
+        lines.append(f"video_url: {post['video_url']}")
     lines.append("---")
     lines.append("")
     lines.append(post.get("caption", ""))
@@ -314,7 +338,12 @@ def sync_saved_posts(
                     collection=collection_name,
                     date_saved=today,
                 )
-                idx.add(shortcode, filepath.name, collection=collection_name)
+                idx.add(
+                    shortcode, filepath.name,
+                    collection=collection_name,
+                    video_url=post.get("video_url", ""),
+                    post_type=post.get("type", ""),
+                )
                 synced += 1
             except Exception as exc:
                 errors.append(f"{shortcode}: {exc}")
@@ -379,6 +408,68 @@ def sync_all_collections(
     }
 
 
+def download_videos(
+    index_path: Path = INDEX_PATH,
+    vault_dir: Path = VAULT_DIR,
+) -> dict:
+    idx = Index(index_path)
+    downloaded = 0
+    skipped = 0
+    errors = []
+
+    video_dir = vault_dir / "videos"
+    video_dir.mkdir(parents=True, exist_ok=True)
+
+    pending = [
+        (sc, entry) for sc, entry in idx.entries.items()
+        if entry.get("video_url") and not entry.get("downloaded")
+    ]
+
+    for shortcode, entry in pending:
+        video_url = entry["video_url"]
+        filename = f"videos/{shortcode}.mp4"
+        filepath = video_dir / f"{shortcode}.mp4"
+
+        try:
+            req = urllib.request.Request(video_url, headers={
+                "User-Agent": "Mozilla/5.0",
+            })
+            with urllib.request.urlopen(req, timeout=60, context=_SSL_CTX) as resp:
+                filepath.write_bytes(resp.read())
+
+            entry["downloaded"] = True
+            entry["video_file"] = filename
+            entry["downloaded_at"] = datetime.now(timezone.utc).isoformat()
+            downloaded += 1
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError) as exc:
+            errors.append(f"{shortcode}: {exc}")
+
+        if (downloaded + len(errors)) % 10 == 0:
+            idx.save()
+        time.sleep(0.5)
+
+    idx.save()
+    total_with_video = sum(1 for e in idx.entries.values() if e.get("video_url"))
+    total_downloaded = sum(1 for e in idx.entries.values() if e.get("downloaded"))
+    return {
+        "downloaded": downloaded,
+        "errors": errors,
+        "total_with_video": total_with_video,
+        "total_downloaded": total_downloaded,
+    }
+
+
+def _print_download_result(result: dict) -> None:
+    print(f"\n✓ Download complete")
+    print(f"  Downloaded: {result['downloaded']} videos")
+    print(f"  Total: {result['total_downloaded']}/{result['total_with_video']} videos on disk")
+    if result.get("errors"):
+        print(f"  Errors: {len(result['errors'])}")
+        for err in result["errors"]:
+            print(f"    [ERROR] {err}")
+    print(f"  Vault: {VAULT_DIR}/")
+
+
 def _print_result(result: dict, label: str = "Sync") -> None:
     print(f"\n✓ {label} complete")
     print(f"  Synced: {result['synced']} new posts")
@@ -404,7 +495,9 @@ def main() -> None:
     sync_p = sub.add_parser("sync", help="Sync saved posts")
     sync_p.add_argument("--refresh", action="store_true", help="Re-fetch all, update existing")
     sync_p.add_argument("--collection", default="", help="Sync only this collection")
+    sync_p.add_argument("--no-download", action="store_true", help="Skip video download after sync")
 
+    sub.add_parser("download", help="Download videos not yet downloaded")
     sub.add_parser("collections", help="List saved collections")
     sub.add_parser("status", help="Show sync status")
 
@@ -438,6 +531,16 @@ def main() -> None:
             }
             _print_result(combined)
 
+        if not args.no_download:
+            print("\nDownloading videos...")
+            dl_result = download_videos()
+            _print_download_result(dl_result)
+
+    elif args.command == "download":
+        print("Downloading videos...")
+        dl_result = download_videos()
+        _print_download_result(dl_result)
+
     elif args.command == "collections":
         print("Fetching collections...")
         raw = fetch_collections(headers)
@@ -455,13 +558,20 @@ def main() -> None:
             print("No posts synced yet. Run: /sync-instagram")
             return
         collections = set()
+        total_with_video = 0
+        total_downloaded = 0
         for entry in idx.entries.values():
             collections.add(entry.get("collection", "uncategorized"))
+            if entry.get("video_url"):
+                total_with_video += 1
+            if entry.get("downloaded"):
+                total_downloaded += 1
         md_files = list(VAULT_DIR.glob("*.md"))
         print(f"\n— Instagram Saved Posts Status —")
         print(f"  Indexed: {idx.count()} posts")
         print(f"  Files: {len(md_files)} markdown files")
         print(f"  Collections: {len(collections)}")
+        print(f"  Videos: {total_downloaded}/{total_with_video} downloaded")
         print(f"  Vault: {VAULT_DIR}/")
 
     else:

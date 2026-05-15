@@ -21,9 +21,10 @@ const TYPE_ICONS: Record<string, typeof FilmStrip> = {
 
 interface ComposeHomeProps {
   entries: RegistryEntry[];
+  agentReady?: boolean;
 }
 
-export default function ComposeHome({ entries }: ComposeHomeProps) {
+export default function ComposeHome({ entries, agentReady = false }: ComposeHomeProps) {
   const [visible, setVisible] = useState(false);
   const recentEntries = entries
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -59,7 +60,45 @@ export default function ComposeHome({ entries }: ComposeHomeProps) {
 
       {/* Compose card */}
       <AnimateIn delay={150} className="w-full">
-        <ComposeArea />
+        {agentReady ? (
+          <ComposeArea />
+        ) : (
+          <div className="w-full max-w-[760px] mx-auto">
+            <div className="rounded-[2rem] bg-white/[0.02] border border-white/[0.06] p-2">
+              <div className="rounded-[calc(2rem-0.5rem)] bg-surface/60 px-12 py-14 text-center shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]">
+                <p className="text-[15px] font-medium text-content mb-2">
+                  Agent not configured
+                </p>
+                <p className="text-[13px] text-sub leading-relaxed max-w-md mx-auto">
+                  Add{" "}
+                  <code className="font-mono text-accent bg-accent-soft px-2 py-0.5 rounded-md text-[12px]">
+                    ANTHROPIC_API_KEY
+                  </code>{" "}
+                  to your{" "}
+                  <code className="font-mono text-accent bg-accent-soft px-2 py-0.5 rounded-md text-[12px]">
+                    .env
+                  </code>{" "}
+                  file to enable content generation.
+                </p>
+                <a
+                  href="/settings"
+                  className="
+                    inline-flex items-center gap-1.5 mt-5
+                    px-5 py-2.5 rounded-full
+                    bg-white/[0.06] border border-white/[0.08]
+                    text-[13px] font-medium text-content
+                    transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
+                    hover:bg-white/[0.10] hover:border-white/[0.14]
+                    active:scale-[0.97]
+                  "
+                >
+                  View settings
+                  <ArrowUpRight size={13} weight="bold" className="text-accent" />
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
       </AnimateIn>
 
       {/* Recent content cards (below the fold) */}
