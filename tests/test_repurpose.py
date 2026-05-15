@@ -7,7 +7,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from scripts.repurpose import resolve_source, _extract_shortcode_from_url, transcribe_source, build_repurpose_frontmatter
+from scripts.repurpose import resolve_source, _extract_shortcode_from_url, transcribe_source, build_repurpose_frontmatter, ensure_downloaded
 
 
 class TestResolveSourceShortcode:
@@ -306,3 +306,63 @@ class TestBuildRepurposeFrontmatter:
 
         fm = build_repurpose_frontmatter(source_meta)
         assert fm["source_title"] == "First line of caption"
+
+
+class TestEnsureDownloaded:
+    def test_returns_path_when_already_downloaded(self, tmp_path):
+        vault_dir = tmp_path / "vault" / "imports" / "instagram-saved"
+        vault_dir.mkdir(parents=True)
+        videos_dir = vault_dir / "videos"
+        videos_dir.mkdir()
+        (videos_dir / "ABC.mp4").write_bytes(b"video")
+
+        index = {
+            "ABC": {
+                "file": "abc.md",
+                "video_url": "https://example.com/v.mp4",
+                "downloaded": True,
+                "video_file": "videos/ABC.mp4",
+            }
+        }
+        (vault_dir / "_index.json").write_text(json.dumps(index))
+
+        result = ensure_downloaded("ABC", vault_dir=vault_dir)
+        assert result == (videos_dir / "ABC.mp4").resolve()
+
+    def test_triggers_download_when_not_downloaded(self, tmp_path):
+        vault_dir = tmp_path / "vault" / "imports" / "instagram-saved"
+        vault_dir.mkdir(parents=True)
+        videos_dir = vault_dir / "videos"
+        videos_dir.mkdir()
+
+        index = {
+            "ABC": {
+                "file": "abc.md",
+                "video_url": "https://example.com/v.mp4",
+                "downloaded": False,
+                "video_file": "",
+            }
+        }
+        (vault_dir / "_index.json").write_text(json.dumps(index))
+
+        # After download_videos runs, simulate the file being there
+        def fake_download(index_path, vault_dir):
+            (videos_dir / "ABC.mp4").write_bytes(b"downloaded")
+            idx = json.loads(index_path.read_text())
+            idx["ABC"]["downloaded"] = True
+            idx["ABC"]["video_file"] = "videos/ABC.mp4"
+            index_path.write_text(json.dumps(idx))
+            return {"downloaded": 1, "errors": []}
+
+        with patch("scripts.repurpose.download_videos", side_effect=fake_download):
+            result = ensure_downloaded("ABC", vault_dir=vault_dir)
+
+        assert result == (videos_dir / "ABC.mp4").resolve()
+
+    def test_raises_when_shortcode_not_in_index(self, tmp_path):
+        vault_dir = tmp_path / "vault" / "imports" / "instagram-saved"
+        vault_dir.mkdir(parents=True)
+        (vault_dir / "_index.json").write_text("{}")
+
+        with pytest.raises(KeyError, match="not found"):
+            ensure_downloaded("MISSING", vault_dir=vault_dir)

@@ -15,6 +15,7 @@ import yaml
 
 from scripts.video_edit.transcribe import transcribe_one, load_api_key
 from scripts.video_edit.pack_transcripts import pack_one_file, render_markdown
+from scripts.sync_instagram import download_videos
 
 
 VAULT_DIR = Path("vault/imports/instagram-saved")
@@ -169,3 +170,37 @@ def build_repurpose_frontmatter(source_meta: dict) -> dict:
         "source_title": first_line,
         "repurposed": True,
     }
+
+
+def ensure_downloaded(
+    shortcode: str,
+    vault_dir: Path = VAULT_DIR,
+) -> Path:
+    """Ensure the video for a shortcode is downloaded. Returns video path.
+
+    Triggers download_videos() if the video hasn't been downloaded yet.
+    """
+    index_path = vault_dir / "_index.json"
+    if not index_path.exists():
+        raise FileNotFoundError(f"Vault index not found at {index_path}")
+
+    index = json.loads(index_path.read_text())
+    entry = index.get(shortcode)
+    if not entry:
+        raise KeyError(f"Shortcode '{shortcode}' not found in vault index.")
+
+    if not entry.get("downloaded"):
+        print(f"Downloading video for {shortcode}...")
+        download_videos(index_path=index_path, vault_dir=vault_dir)
+        # Re-read index after download
+        index = json.loads(index_path.read_text())
+        entry = index.get(shortcode, {})
+
+    if not entry.get("downloaded") or not entry.get("video_file"):
+        raise FileNotFoundError(
+            f"Failed to download video for '{shortcode}'. "
+            f"Check that the video URL is still valid."
+        )
+
+    video_path = vault_dir / entry["video_file"]
+    return video_path.resolve()
