@@ -3,10 +3,11 @@
 import json
 import textwrap
 from pathlib import Path
+from unittest.mock import patch, MagicMock
 
 import pytest
 
-from scripts.repurpose import resolve_source, _extract_shortcode_from_url
+from scripts.repurpose import resolve_source, _extract_shortcode_from_url, transcribe_source
 
 
 class TestResolveSourceShortcode:
@@ -195,3 +196,60 @@ class TestExtractShortcodeFromURL:
 
     def test_plain_shortcode_returns_empty(self):
         assert _extract_shortcode_from_url("DI3RGhLNXPc") == ""
+
+
+class TestTranscribeSource:
+    def test_calls_transcribe_and_pack(self, tmp_path):
+        video = tmp_path / "source.mp4"
+        video.write_bytes(b"fake-video")
+        work_dir = tmp_path / "work"
+        work_dir.mkdir()
+        edit_dir = work_dir / "edit"
+
+        # Pre-create what transcribe_one would produce
+        transcripts_dir = edit_dir / "transcripts"
+        transcripts_dir.mkdir(parents=True)
+        transcript_json = transcripts_dir / "source.json"
+        transcript_json.write_text(json.dumps({
+            "words": [
+                {"type": "word", "text": "Hello", "start": 0.0, "end": 0.5, "speaker_id": "speaker_0"},
+                {"type": "spacing", "start": 0.5, "end": 0.6},
+                {"type": "word", "text": "world", "start": 0.6, "end": 1.0, "speaker_id": "speaker_0"},
+            ]
+        }))
+
+        with patch("scripts.repurpose.load_api_key", return_value="fake-key"), \
+             patch("scripts.repurpose.transcribe_one") as mock_transcribe:
+            mock_transcribe.return_value = transcript_json
+            result = transcribe_source(video, work_dir)
+
+        mock_transcribe.assert_called_once()
+        assert result.exists()
+        assert result.name == "takes_packed.md"
+        content = result.read_text()
+        assert "Hello" in content
+        assert "world" in content
+
+    def test_uses_cached_transcript(self, tmp_path):
+        video = tmp_path / "source.mp4"
+        video.write_bytes(b"fake")
+        work_dir = tmp_path / "work"
+        edit_dir = work_dir / "edit"
+        transcripts_dir = edit_dir / "transcripts"
+        transcripts_dir.mkdir(parents=True)
+
+        transcript_json = transcripts_dir / "source.json"
+        transcript_json.write_text(json.dumps({
+            "words": [
+                {"type": "word", "text": "cached", "start": 0.0, "end": 0.5, "speaker_id": "speaker_0"},
+            ]
+        }))
+
+        with patch("scripts.repurpose.load_api_key", return_value="fake-key"), \
+             patch("scripts.repurpose.transcribe_one") as mock_transcribe:
+            mock_transcribe.return_value = transcript_json
+            result = transcribe_source(video, work_dir)
+
+        # transcribe_one is still called (it handles its own caching)
+        mock_transcribe.assert_called_once()
+        assert "cached" in result.read_text()

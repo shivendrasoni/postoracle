@@ -13,6 +13,9 @@ from pathlib import Path
 
 import yaml
 
+from scripts.video_edit.transcribe import transcribe_one, load_api_key
+from scripts.video_edit.pack_transcripts import pack_one_file, render_markdown
+
 
 VAULT_DIR = Path("vault/imports/instagram-saved")
 INDEX_PATH = VAULT_DIR / "_index.json"
@@ -125,3 +128,30 @@ def resolve_source(
         "view_count": fm.get("view_count", 0),
         "source_type": "vault",
     }
+
+
+def transcribe_source(video_path: Path, work_dir: Path) -> Path:
+    """Transcribe a source video and pack into readable markdown.
+
+    Returns path to takes_packed.md.
+    """
+    edit_dir = work_dir / "edit"
+    edit_dir.mkdir(parents=True, exist_ok=True)
+
+    api_key = load_api_key()
+    transcribe_one(
+        video=video_path,
+        edit_dir=edit_dir,
+        api_key=api_key,
+        num_speakers=1,
+        verbose=True,
+    )
+
+    transcript_files = sorted((edit_dir / "transcripts").glob("*.json"))
+    entries = [pack_one_file(p, silence_threshold=0.5) for p in transcript_files]
+    markdown = render_markdown(entries, silence_threshold=0.5)
+
+    packed_path = edit_dir / "takes_packed.md"
+    packed_path.write_text(markdown, encoding="utf-8")
+
+    return packed_path
