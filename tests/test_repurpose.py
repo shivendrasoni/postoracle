@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.repurpose import resolve_source
+from scripts.repurpose import resolve_source, _extract_shortcode_from_url
 
 
 class TestResolveSourceShortcode:
@@ -164,3 +164,34 @@ class TestResolveSourceErrors:
 
         with pytest.raises(FileNotFoundError, match="not downloaded"):
             resolve_source("ABC", vault_dir=vault_dir)
+
+
+class TestExtractShortcodeFromURL:
+    def test_reel_url(self):
+        assert _extract_shortcode_from_url(
+            "https://www.instagram.com/reel/DI3RGhLNXPc/"
+        ) == "DI3RGhLNXPc"
+
+    def test_post_url(self):
+        assert _extract_shortcode_from_url(
+            "https://www.instagram.com/p/DI3RGhLNXPc/"
+        ) == "DI3RGhLNXPc"
+
+    def test_url_without_trailing_slash(self):
+        assert _extract_shortcode_from_url(
+            "https://instagram.com/reel/ABC123"
+        ) == "ABC123"
+
+    def test_url_with_query_params(self):
+        assert _extract_shortcode_from_url(
+            "https://www.instagram.com/reel/ABC123/?igsh=abc"
+        ) == "ABC123"
+
+    def test_not_an_instagram_url(self):
+        assert _extract_shortcode_from_url("https://example.com/video") == ""
+
+    def test_empty_string(self):
+        assert _extract_shortcode_from_url("") == ""
+
+    def test_plain_shortcode_returns_empty(self):
+        assert _extract_shortcode_from_url("DI3RGhLNXPc") == ""
