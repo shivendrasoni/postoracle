@@ -35,6 +35,18 @@ Parse `$ARGUMENTS`:
 - Extract everything before `--platform` as `$INPUT` (strip surrounding quotes)
 - Extract value after `--platform` as `$PLATFORM` (default: `all` if not provided)
 
+**Load config:**
+```bash
+python3 -c "
+from scripts.config import load_config
+import json
+config = load_config('publish')
+print(json.dumps(config))
+"
+```
+
+If `--platform` was not provided, use `config.platform` as the default.
+
 **Path resolution:**
 - If `$INPUT` starts with `/`, `./`, or `vault/` → treat as a direct path. Set `SESSION_DIR="$INPUT"`. Skip search.
 - Otherwise → search for folders whose names contain `$INPUT` (case-insensitive):

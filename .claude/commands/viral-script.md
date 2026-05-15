@@ -13,12 +13,22 @@ Generate scored hooks and a full production-ready script from a pre-generated an
 Parse `$ARGUMENTS`:
 - `--angle <path>` — path to an angle file in vault/library/angles/ (mutually exclusive with --topic)
 - `--topic "<text>"` — inline topic string (mutually exclusive with --angle)
-- `--mode` — REQUIRED. One of: `shortform`, `longform`, `linkedin`
+- `--mode` — default from config; required if not in config. One of: `shortform`, `longform`, `linkedin`
 
 Exactly one of `--angle` or `--topic` must be provided. If neither or both, stop:
 > `[ERROR] Provide exactly one of --angle <path> or --topic "<text>"`
 
-If `--mode` is missing, stop:
+**Load config:**
+```bash
+python3 -c "
+from scripts.config import load_config
+import json
+config = load_config('viral_script')
+print(json.dumps(config))
+"
+```
+
+If `--mode` was not provided as a flag, use `config.mode` as the default. Only error if neither flag nor config provides a value:
 > `[ERROR] --mode is required. Choose: shortform, longform, or linkedin`
 
 ## 1. Load Context

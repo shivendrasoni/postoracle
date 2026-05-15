@@ -12,9 +12,9 @@ Orchestrate the carousel creation pipeline below. Work sequentially. Stop and re
 
 Parse `$ARGUMENTS`:
 - `<input>` — everything before any `--` flags (required); can be plain text, HTTP URL, or GitHub repo URL
-- `--platform` — default `instagram` (→ 1080×1080); `linkedin` → 1080×1350
-- `--slides` — default `5`; must be `5` or `6`. If any other value is provided, stop with: `[ERROR] --slides must be 5 or 6`
-- mode flag — `--preview` (default), `--auto`, or `--manual`. If multiple mode flags are present, use the most restrictive: `--manual` > `--preview` > `--auto`
+- `--platform` — default from config (→ 1080×1080 for instagram, 1080×1350 for linkedin)
+- `--slides` — default from config; must be `5` or `6`. If any other value is provided, stop with: `[ERROR] --slides must be 5 or 6`
+- mode flag — `--preview`, `--auto`, or `--manual` — default from config. If multiple mode flags are present, use the most restrictive: `--manual` > `--preview` > `--auto`
 - `--auto-publish instagram|linkedin|all` — optional; if present, publish after pipeline completes. Parse the value that follows `--auto-publish` as `$AUTO_PUBLISH`.
 - `--from-angle <path>` — optional; path to a vault angle file. Skips Stage 1 (Research). The angle's talking_points seed the slide plan.
 
@@ -29,6 +29,22 @@ Verify `OPENAI_API_KEY` is set:
 ```bash
 [ -z "$OPENAI_API_KEY" ] && echo "[ERROR] OPENAI_API_KEY is not set in .env — aborting." >&2 && exit 1
 ```
+
+**Load config:**
+```bash
+python3 -c "
+from scripts.config import load_config
+import json
+config = load_config('make_carousel')
+print(json.dumps(config))
+"
+```
+
+Parse the JSON output into `$CONFIG`. Flag values from arguments override config:
+- `--platform` overrides `config.platform` (default from config or global)
+- `--slides` overrides `config.slides`
+- mode flags (`--preview`, `--auto`, `--manual`) override `config.mode`
+- `--auto-publish` overrides `config.auto_publish`
 
 ## 1. Create Session Folder
 

@@ -12,8 +12,8 @@ Orchestrate the single-image post creation pipeline below. Work sequentially. St
 
 Parse `$ARGUMENTS`:
 - `<input>` — everything before any `--` flags (required); can be plain text, HTTP URL, or GitHub repo URL
-- `--platform` — default `all`; valid: `instagram`, `linkedin`, `x`, `all`
-- `--mode` — default `visual`; valid: `visual` (creative AI image), `text` (branded text card)
+- `--platform` — default from config; valid: `instagram`, `linkedin`, `x`, `all`
+- `--mode` — default from config; valid: `visual` (creative AI image), `text` (branded text card)
 - `--from-angle <path>` — optional; path to an angle YAML file. If present, skip research stage.
 - `--auto-publish <platform>` — optional; if present, publish after pipeline completes.
 
@@ -26,6 +26,21 @@ Verify `OPENAI_API_KEY` is set:
 ```bash
 [ -z "$OPENAI_API_KEY" ] && echo "[ERROR] OPENAI_API_KEY is not set in .env — aborting." >&2 && exit 1
 ```
+
+**Load config:**
+```bash
+python3 -c "
+from scripts.config import load_config
+import json
+config = load_config('make_post')
+print(json.dumps(config))
+"
+```
+
+Parse the JSON output into `$CONFIG`. Flag values from arguments override config:
+- `--platform` overrides `config.platform`
+- `--mode` overrides `config.mode`
+- `--auto-publish` overrides `config.auto_publish`
 
 Determine which platforms need images:
 - If `--platform all` → `PLATFORMS="instagram,linkedin"` (X gets text only, no image needed)

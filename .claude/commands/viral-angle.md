@@ -12,11 +12,25 @@ Generate high-contrast content angles from a topic or URL. Each angle contains a
 
 Parse `$ARGUMENTS`:
 - `<topic-or-url>` — everything before any `--` flags (required)
-- `--format` — one of: `shortform`, `longform`, `linkedin`, `carousel`, `post`, `all`. Default: `all`
-- `--count N` — angles per format. Default: `5`
+- `--format` — one of: `shortform`, `longform`, `linkedin`, `carousel`, `post`, `all`. Default: from config
+- `--count N` — angles per format. Default: from config
 
 If `--format all`, set FORMAT_LIST to `["shortform", "longform", "linkedin", "carousel", "post"]`.
 Otherwise, set FORMAT_LIST to a single-element list with the specified format.
+
+**Load config:**
+```bash
+python3 -c "
+from scripts.config import load_config
+import json
+config = load_config('viral_angle')
+print(json.dumps(config))
+"
+```
+
+Use config values as defaults:
+- `--format` overrides `config.format` (default from config)
+- `--count` overrides `config.count` (default from config)
 
 ## 1. Load Vault Context
 

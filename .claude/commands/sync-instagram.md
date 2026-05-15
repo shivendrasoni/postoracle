@@ -41,6 +41,19 @@ To get these values:
 ```
 Stop here if missing.
 
+**Load config:**
+```bash
+python3 -c "
+from scripts.config import load_config
+import json
+config = load_config('sync_instagram')
+print(json.dumps(config))
+"
+```
+
+Use config values as defaults:
+- `--collection` overrides `config.collection` (default: null/none)
+
 ## 1. Parse Arguments
 
 Parse `$ARGUMENTS`:

@@ -65,9 +65,9 @@ If exit code is non-zero: stop and tell the user exactly which keys are missing.
 **Load config:**
 ```bash
 python3 -c "
-from scripts.reel_config import load_config
+from scripts.config import load_config
 import json
-config = load_config()
+config = load_config('make_reel')
 print(json.dumps(config))
 "
 ```

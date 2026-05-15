@@ -5,15 +5,31 @@
 Parse `$ARGUMENTS` for:
 
 - `<source>` (required): Instagram shortcode, URL, or local video path
-- `--mode <mode>` (default: `record`): One of `record`, `heygen-basic`, `heygen-agent`
-- `--script-mode <mode>` (default: `shortform`): One of `shortform`, `longform`, `linkedin`
-- `--duration <seconds>` (default: `45`): Target video duration
+- `--mode <mode>` (default: from config): One of `record`, `heygen-basic`, `heygen-agent`
+- `--script-mode <mode>` (default: from config): One of `shortform`, `longform`, `linkedin`
+- `--duration <seconds>` (default: from config): Target video duration
 - `--auto` (flag): Skip strategy confirmation
 - `--no-broll` (flag): Skip b-roll fetching (passed to make-reel)
 - `--no-subtitles` (flag): Skip subtitle generation (passed to make-reel)
 
 If no `<source>` is provided, stop with:
 > "Usage: `/repurpose <shortcode|url|path> [--mode record|heygen-basic|heygen-agent] [--script-mode shortform|longform|linkedin]`"
+
+**Load config:**
+```bash
+python3 -c "
+from scripts.config import load_config
+import json
+config = load_config('repurpose')
+print(json.dumps(config))
+"
+```
+
+Use config values as defaults:
+- `--mode` overrides `config.mode` (default: from config)
+- `--script-mode` overrides `config.script_mode` (default: from config)
+- `--duration` overrides `config.duration` (default: from config)
+- `--auto` overrides `config.auto_confirm`
 
 ---
 
