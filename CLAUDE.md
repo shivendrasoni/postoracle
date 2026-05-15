@@ -33,7 +33,7 @@ After the banner, respond to whatever the user asked. If it's a greeting or open
 | Command | What it does |
 |---------|-------------|
 | `/setup` | First-time setup wizard — deps, API keys, platform connections |
-| `/make-reel <topic>` | Video pipeline: research → script → Video Agent (default) or talking head + local edit (`--local-edit`) |
+| `/make-reel <topic>` | Video pipeline: Video Agent (default), `--heygen-basic` (talking head + local edit), or `--edit-raw <video>` (edit your own footage). Config: `vault/reel-config.yaml` |
 | `/make-carousel <topic>` | 5–6 branded slide images + caption |
 | `/make-post <topic>` | Single-image post per platform |
 | `/viral-angle <topic>` | Generate scored content angles (Contrast Formula) |
@@ -85,7 +85,7 @@ User → Slash Command → Pipeline Stages → Output
 | `scripts/registry.py` | Content registry (JSON-backed tracking) |
 | `scripts/parse_angle.py` | Angle file parser (YAML frontmatter) |
 | `scripts/parse_script.py` | Script file → beats JSON parser |
-| `scripts/heygen_basic_video.py` | Basic HeyGen v2 talking-head generator (for `--local-edit` mode) |
+| `scripts/heygen_basic_video.py` | Basic HeyGen v2 talking-head generator (for `--heygen-basic` mode) |
 | `scripts/fetch_broll.py` | Pexels video/photo fetcher for b-roll |
 | `scripts/fetch_images.py` | Stock image fetcher (Pexels/Pixabay) |
 | `scripts/fetch_sfx.py` | Sound effects fetcher |
@@ -94,6 +94,14 @@ User → Slash Command → Pipeline Stages → Output
 | `scripts/build_manifest.py` | Asset manifest builder |
 | `scripts/sync_instagram.py` | Instagram saved posts fetcher and vault writer |
 | `scripts/check_env.py` | Environment variable validator |
+| `scripts/video_edit/transcribe.py` | ElevenLabs Scribe transcription (word-level, for `--edit-raw`) |
+| `scripts/video_edit/pack_transcripts.py` | Word-level JSON → phrase-level markdown |
+| `scripts/video_edit/render.py` | EDL-driven render pipeline (extract → concat → overlays → subtitles → loudnorm) |
+| `scripts/video_edit/grade.py` | Color grading (presets + auto-analysis) |
+| `scripts/video_edit/build_edl.py` | EDL construction from beats.json with source→output time mapping |
+| `scripts/video_edit/edit_engine.py` | Thin editing engine orchestrator (transcribe → EDL → render) |
+| `scripts/video_edit/timeline_view.py` | Filmstrip + waveform visual debugger |
+| `scripts/reel_config.py` | Reel config loader (vault/reel-config.yaml) with flag overrides |
 | `AVATAR-USER.md` | Active HeyGen avatar config (symlink) |
 | `.mcp.json` | MCP server config (HeyGen) |
 | `vault/content-registry.json` | Content tracking database |
@@ -127,6 +135,7 @@ The `vault/` directory is gitignored. It's created by `/brand-voice` on first ru
 
 ```
 vault/
+├── reel-config.yaml            # Reel pipeline defaults (lazy-created)
 ├── brand/
 │   ├── brand-voice.md          # Compiled brand profile
 │   └── modules/                # 11 individual brand modules
