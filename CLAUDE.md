@@ -104,10 +104,11 @@ User → Slash Command → Pipeline Stages → Output
 | `scripts/video_edit/build_edl.py` | EDL construction from beats.json with source→output time mapping |
 | `scripts/video_edit/edit_engine.py` | Thin editing engine orchestrator (transcribe → EDL → render) |
 | `scripts/video_edit/timeline_view.py` | Filmstrip + waveform visual debugger |
-| `scripts/reel_config.py` | Reel config loader (vault/reel-config.yaml) with flag overrides |
+| `scripts/config.py` | Centralized config loader (vault/postoracle.yaml) |
 | `AVATAR-USER.md` | Active HeyGen avatar config (symlink) |
 | `.mcp.json` | MCP server config (HeyGen) |
 | `vault/content-registry.json` | Content tracking database |
+| `vault/postoracle.yaml` | Centralized command defaults (all commands) |
 | `vault/publish-config.md` | Publish notification config |
 
 ## Environment Variables
@@ -138,7 +139,7 @@ The `vault/` directory is gitignored. It's created by `/brand-voice` on first ru
 
 ```
 vault/
-├── reel-config.yaml            # Reel pipeline defaults (lazy-created)
+├── postoracle.yaml                 # Centralized command defaults
 ├── brand/
 │   ├── brand-voice.md          # Compiled brand profile
 │   └── modules/                # 11 individual brand modules
@@ -181,3 +182,4 @@ pytest tests/ -v
 - All Python scripts are in `scripts/` with matching tests in `tests/`
 - Publishing uses Composio CLI — platform handlers are in `scripts/publish.py` `PLATFORM_REGISTRY`
 - Content type detection is automatic from session directory contents (final.mp4 → reel, 1.png → carousel, image.png → post)
+- Command defaults are centralized in `vault/postoracle.yaml` — CLI flags override config values
