@@ -1,16 +1,25 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { ArrowRight, Gear, Link as LinkIcon, X } from "@phosphor-icons/react";
+import { ArrowRight, Link as LinkIcon, X } from "@phosphor-icons/react";
 import { useCompose } from "@/lib/compose-context";
 import TypeSelector from "./type-selector";
 import ControlPills from "./control-pills";
 import AttachMenu from "./attach-menu";
+import SettingsDropdown from "./settings-dropdown";
 
 export default function ComposeArea() {
   const { state, dispatch } = useCompose();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [configDefaults, setConfigDefaults] = useState<Record<string, unknown>>({});
+
+  useEffect(() => {
+    fetch("/api/settings/config")
+      .then((r) => r.json())
+      .then((data: Record<string, unknown>) => setConfigDefaults(data))
+      .catch(() => {});
+  }, []);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -30,7 +39,9 @@ export default function ComposeArea() {
       slides: state.type === "carousel" ? state.slides : undefined,
       avatarId: state.type === "reel" ? state.avatarId : undefined,
       voiceId: state.type === "reel" ? state.voiceId : undefined,
+      styleId: ["reel", "carousel", "post"].includes(state.type) ? state.styleId : undefined,
       attachments: state.attachments,
+      params: Object.keys(state.paramOverrides).length > 0 ? state.paramOverrides : undefined,
     };
 
     console.log("[PostOracle] Generate request:", payload);
@@ -74,9 +85,16 @@ export default function ComposeArea() {
               platform={state.platform}
               slides={state.slides}
               avatarId={state.avatarId}
+              avatarName={state.avatarName}
               voiceId={state.voiceId}
+              voiceName={state.voiceName}
+              styleId={state.styleId}
+              styleName={state.styleName}
               onPlatformChange={(p) => dispatch({ kind: "SET_PLATFORM", platform: p })}
               onSlidesChange={(s) => dispatch({ kind: "SET_SLIDES", slides: s })}
+              onAvatarSelect={(id, name) => dispatch({ kind: "SET_AVATAR", avatarId: id, avatarName: name })}
+              onVoiceSelect={(id, name) => dispatch({ kind: "SET_VOICE", voiceId: id, voiceName: name })}
+              onStyleSelect={(id, name) => dispatch({ kind: "SET_STYLE", styleId: id, styleName: name })}
             />
           </div>
 
@@ -135,19 +153,13 @@ export default function ComposeArea() {
               <AttachMenu
                 onAttachUrl={(url) => dispatch({ kind: "ADD_ATTACHMENT", url })}
               />
-              <button
-                type="button"
-                className="
-                  flex items-center justify-center w-8 h-8 rounded-full
-                  bg-white/[0.04] border border-white/[0.06]
-                  text-muted
-                  transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
-                  hover:bg-white/[0.08] hover:text-sub hover:border-white/[0.10]
-                  active:scale-[0.94]
-                "
-              >
-                <Gear size={15} weight="light" />
-              </button>
+              <SettingsDropdown
+                type={state.type}
+                defaults={configDefaults}
+                overrides={state.paramOverrides}
+                onOverride={(key, value) => dispatch({ kind: "SET_PARAM_OVERRIDE", key, value })}
+                onClear={(key) => dispatch({ kind: "CLEAR_PARAM_OVERRIDE", key })}
+              />
             </div>
 
             {/* Right: type selector + generate */}
