@@ -7,8 +7,13 @@ import {
   Article,
   File,
   ArrowUpRight,
+  ArrowsClockwise,
+  ChartBar,
+  Eye,
+  Heart,
 } from "@phosphor-icons/react";
-import type { RegistryEntry } from "@/lib/types";
+import type { RegistryEntry, SavedPost } from "@/lib/types";
+import { useCompose } from "@/lib/compose-context";
 import ComposeArea from "./compose-area";
 import StatusBadge from "../status-badge";
 import AnimateIn from "../animate-in";
@@ -19,16 +24,32 @@ const TYPE_ICONS: Record<string, typeof FilmStrip> = {
   post: Article,
 };
 
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+}
+
 interface ComposeHomeProps {
   entries: RegistryEntry[];
+  saves?: SavedPost[];
   agentReady?: boolean;
 }
 
-export default function ComposeHome({ entries, agentReady = false }: ComposeHomeProps) {
+export default function ComposeHome({ entries, saves = [], agentReady = false }: ComposeHomeProps) {
   const [visible, setVisible] = useState(false);
+  const { dispatch } = useCompose();
   const recentEntries = entries
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 6);
+  const recentSaves = saves.slice(0, 8);
+
+  function handleRepurpose(post: SavedPost) {
+    const source = post.link || post.shortcode;
+    dispatch({ kind: "SET_TOPIC", topic: `Repurpose: ${source}` });
+    dispatch({ kind: "SET_TYPE", type: "reel" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   useEffect(() => {
     setVisible(true);
@@ -100,6 +121,106 @@ export default function ComposeHome({ entries, agentReady = false }: ComposeHome
           </div>
         )}
       </AnimateIn>
+
+      {/* Saved content with hover actions */}
+      {recentSaves.length > 0 && (
+        <AnimateIn delay={250} className="w-full mt-16 max-w-[760px] mx-auto">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-[13px] font-medium tracking-[0.08em] uppercase text-muted">
+              Saved content
+            </h2>
+            <a
+              href="/saves"
+              className="text-[12px] text-muted hover:text-sub transition-colors duration-300"
+            >
+              View all
+            </a>
+          </div>
+
+          <div className="rounded-[1.5rem] bg-white/[0.02] border border-white/[0.06] p-1.5">
+            <div className="rounded-[calc(1.5rem-0.375rem)] bg-surface/40 overflow-hidden">
+              {recentSaves.map((post, i) => {
+                const Icon = TYPE_ICONS[post.type] ?? File;
+                return (
+                  <div
+                    key={post.shortcode}
+                    className={`group relative flex items-center gap-4 px-5 py-3.5
+                      transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
+                      hover:bg-white/[0.02]
+                      ${i > 0 ? "border-t border-white/[0.04]" : ""}`}
+                  >
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-accent-soft text-accent">
+                      <Icon size={16} weight="light" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-medium text-content truncate">
+                        {post.caption.split("\n")[0] || post.shortcode}
+                      </div>
+                      <div className="text-[11px] text-muted mt-0.5 flex items-center gap-1.5">
+                        <span className="capitalize">{post.platform}</span>
+                        <span className="text-faint">·</span>
+                        <span>{post.author_name || post.author}</span>
+                        {post.view_count > 0 && (
+                          <>
+                            <span className="text-faint">·</span>
+                            <span className="flex items-center gap-0.5">
+                              <Eye size={10} weight="light" />
+                              {formatNumber(post.view_count)}
+                            </span>
+                          </>
+                        )}
+                        {post.like_count > 0 && (
+                          <>
+                            <span className="text-faint">·</span>
+                            <span className="flex items-center gap-0.5">
+                              <Heart size={10} weight="light" />
+                              {formatNumber(post.like_count)}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Hover actions */}
+                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <button
+                        type="button"
+                        onClick={() => handleRepurpose(post)}
+                        title="Repurpose"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full
+                          bg-accent/10 text-accent text-[11px] font-medium
+                          border border-accent/20
+                          transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
+                          hover:bg-accent/20 hover:border-accent/30
+                          active:scale-[0.96]"
+                      >
+                        <ArrowsClockwise size={12} weight="bold" />
+                        Repurpose
+                      </button>
+                      <a
+                        href={post.link || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Analyse"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full
+                          bg-white/[0.04] text-sub text-[11px] font-medium
+                          border border-white/[0.08]
+                          transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
+                          hover:bg-white/[0.08] hover:border-white/[0.12]
+                          active:scale-[0.96]"
+                      >
+                        <ChartBar size={12} weight="bold" />
+                        Analyse
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </AnimateIn>
+      )}
 
       {/* Recent content cards (below the fold) */}
       {recentEntries.length > 0 && (

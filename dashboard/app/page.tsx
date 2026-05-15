@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 import { readVaultJson, vaultPathExists } from "@/lib/vault";
+import { loadAllSaves } from "@/lib/saves";
 import type { RegistryEntry } from "@/lib/types";
 import ComposeHome from "@/components/compose/compose-home";
 
@@ -18,5 +19,7 @@ export default async function Home() {
     ? await readVaultJson<RegistryEntry[]>("content-registry.json")
     : [];
 
-  return <ComposeHome entries={entries} agentReady={hasAnthropicKey()} />;
+  const saves = await loadAllSaves();
+
+  return <ComposeHome entries={entries} saves={saves} agentReady={hasAnthropicKey()} />;
 }

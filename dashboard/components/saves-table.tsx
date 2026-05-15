@@ -14,6 +14,8 @@ import {
   ChatCircle,
   CaretRight,
   DownloadSimple,
+  ArrowsClockwise,
+  ChartBar,
 } from "@phosphor-icons/react";
 
 const TYPE_ICONS: Record<string, typeof FilmStrip> = {
@@ -197,6 +199,41 @@ export default function SavesTable({ posts }: SavesTableProps) {
                         {formatNumber(post.comment_count)}
                       </span>
                     )}
+                  </div>
+
+                  {/* Action buttons — visible on hover */}
+                  <div
+                    className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <a
+                      href={`/?topic=${encodeURIComponent(`Repurpose: ${post.link || post.shortcode}`)}&type=reel`}
+                      title="Repurpose"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full
+                        bg-accent/10 text-accent text-[11px] font-medium
+                        border border-accent/20
+                        transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
+                        hover:bg-accent/20 hover:border-accent/30
+                        active:scale-[0.96]"
+                    >
+                      <ArrowsClockwise size={12} weight="bold" />
+                      Repurpose
+                    </a>
+                    <a
+                      href={post.link || "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Analyse"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full
+                        bg-white/[0.04] text-sub text-[11px] font-medium
+                        border border-white/[0.08]
+                        transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
+                        hover:bg-white/[0.08] hover:border-white/[0.12]
+                        active:scale-[0.96]"
+                    >
+                      <ChartBar size={12} weight="bold" />
+                      Analyse
+                    </a>
                   </div>
 
                   {post.downloaded && (
