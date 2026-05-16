@@ -6,16 +6,41 @@ import {
   Link as LinkIcon,
   Image as ImageIcon,
   FileText,
+  Compass,
+  CircleNotch,
 } from "@phosphor-icons/react";
+
+interface AngleItem {
+  path: string;
+  oneLiner: string;
+  hookPattern: string;
+  strength: string;
+  score: number;
+  recommended: boolean;
+}
 
 interface AttachMenuProps {
   onAttachUrl: (url: string) => void;
+  contentType: string;
+  anglePath?: string;
+  onAngleSelect: (path: string, name: string) => void;
+  onAngleClear: () => void;
 }
 
-export default function AttachMenu({ onAttachUrl }: AttachMenuProps) {
+type View = "menu" | "url" | "angles";
+
+export default function AttachMenu({
+  onAttachUrl,
+  contentType,
+  anglePath,
+  onAngleSelect,
+  onAngleClear,
+}: AttachMenuProps) {
   const [open, setOpen] = useState(false);
-  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [view, setView] = useState<View>("menu");
   const [url, setUrl] = useState("");
+  const [angles, setAngles] = useState<AngleItem[]>([]);
+  const [loadingAngles, setLoadingAngles] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -23,7 +48,7 @@ export default function AttachMenu({ onAttachUrl }: AttachMenuProps) {
     function handleClickOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
-        setShowUrlInput(false);
+        setView("menu");
       }
     }
     if (open) {
@@ -33,19 +58,43 @@ export default function AttachMenu({ onAttachUrl }: AttachMenuProps) {
   }, [open]);
 
   useEffect(() => {
-    if (showUrlInput && inputRef.current) {
+    if (view === "url" && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [showUrlInput]);
+  }, [view]);
 
   function handleUrlSubmit() {
     if (url.trim()) {
       onAttachUrl(url.trim());
       setUrl("");
-      setShowUrlInput(false);
+      setView("menu");
       setOpen(false);
     }
   }
+
+  async function loadAngles() {
+    setView("angles");
+    if (angles.length > 0) return;
+    setLoadingAngles(true);
+    try {
+      const format = contentType === "carousel" ? "carousel" : "";
+      const res = await fetch(`/api/angles${format ? `?format=${format}` : ""}`);
+      const data = await res.json();
+      setAngles(Array.isArray(data) ? data : []);
+    } catch {
+      setAngles([]);
+    } finally {
+      setLoadingAngles(false);
+    }
+  }
+
+  function handleAngleSelect(angle: AngleItem) {
+    onAngleSelect(angle.path, angle.oneLiner);
+    setOpen(false);
+    setView("menu");
+  }
+
+  const showAngleOption = ["carousel", "script"].includes(contentType);
 
   return (
     <div className="relative" ref={containerRef}>
@@ -53,7 +102,7 @@ export default function AttachMenu({ onAttachUrl }: AttachMenuProps) {
         type="button"
         onClick={() => {
           setOpen(!open);
-          setShowUrlInput(false);
+          setView("menu");
         }}
         className="
           flex items-center justify-center w-8 h-8 rounded-full
@@ -77,9 +126,9 @@ export default function AttachMenu({ onAttachUrl }: AttachMenuProps) {
       <div
         className={`
           absolute bottom-full left-0 mb-2
-          rounded-2xl bg-panel/95 backdrop-blur-xl
+          rounded-2xl bg-panel backdrop-blur-xl
           border border-white/[0.08]
-          shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.03)]
+          shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.03)]
           overflow-hidden
           transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
           origin-bottom-left
@@ -88,9 +137,9 @@ export default function AttachMenu({ onAttachUrl }: AttachMenuProps) {
             : "opacity-0 scale-95 pointer-events-none translate-y-1"
           }
         `}
-        style={{ minWidth: showUrlInput ? "320px" : "180px" }}
+        style={{ minWidth: view === "url" ? "320px" : view === "angles" ? "340px" : "180px" }}
       >
-        {showUrlInput ? (
+        {view === "url" && (
           <div className="p-3">
             <div className="text-[11px] font-medium text-muted uppercase tracking-[0.1em] mb-2 px-1">
               Add URL
@@ -104,7 +153,7 @@ export default function AttachMenu({ onAttachUrl }: AttachMenuProps) {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleUrlSubmit();
                   if (e.key === "Escape") {
-                    setShowUrlInput(false);
+                    setView("menu");
                     setUrl("");
                   }
                 }}
@@ -132,11 +181,76 @@ export default function AttachMenu({ onAttachUrl }: AttachMenuProps) {
               </button>
             </div>
           </div>
-        ) : (
+        )}
+
+        {view === "angles" && (
+          <div className="p-1.5">
+            <div className="px-2.5 pt-1 pb-2">
+              <span className="text-[10px] font-semibold tracking-[0.1em] uppercase text-muted">
+                From angle
+              </span>
+            </div>
+            <div className="max-h-64 overflow-y-auto">
+              {loadingAngles ? (
+                <div className="flex items-center justify-center py-6">
+                  <CircleNotch size={16} weight="bold" className="text-muted animate-spin" />
+                </div>
+              ) : angles.length === 0 ? (
+                <div className="py-5 text-center">
+                  <p className="text-[12px] text-muted">No angles yet</p>
+                  <p className="text-[11px] text-muted/60 mt-0.5">Run /viral-angle first</p>
+                </div>
+              ) : (
+                angles.map((angle) => {
+                  const isSelected = angle.path === anglePath;
+                  return (
+                    <button
+                      key={angle.path}
+                      type="button"
+                      onClick={() => handleAngleSelect(angle)}
+                      className={`
+                        w-full text-left px-2.5 py-2 rounded-xl
+                        transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
+                        ${isSelected
+                          ? "bg-accent-soft border border-accent/20"
+                          : "hover:bg-white/[0.04] border border-transparent"
+                        }
+                      `}
+                    >
+                      <div className={`text-[12px] leading-snug ${isSelected ? "text-accent font-medium" : "text-content"}`}>
+                        {angle.recommended ? "⭐ " : ""}{angle.oneLiner}
+                      </div>
+                      <div className="text-[10px] text-muted mt-0.5">
+                        {angle.hookPattern} · {angle.strength} · {angle.score.toFixed(1)}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            {anglePath && (
+              <div className="border-t border-white/[0.04] mt-1 pt-1 px-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAngleClear();
+                    setOpen(false);
+                    setView("menu");
+                  }}
+                  className="w-full text-center py-2 text-[11px] text-muted hover:text-content transition-colors rounded-lg hover:bg-white/[0.04]"
+                >
+                  Clear angle
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {view === "menu" && (
           <div className="p-1.5">
             <button
               type="button"
-              onClick={() => setShowUrlInput(true)}
+              onClick={() => setView("url")}
               className="
                 w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px]
                 text-sub hover:text-content hover:bg-white/[0.04]
@@ -146,6 +260,23 @@ export default function AttachMenu({ onAttachUrl }: AttachMenuProps) {
               <LinkIcon size={15} weight="light" className="text-muted" />
               Attach URL
             </button>
+            {showAngleOption && (
+              <button
+                type="button"
+                onClick={loadAngles}
+                className={`
+                  w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px]
+                  transition-all duration-300
+                  ${anglePath
+                    ? "text-accent bg-accent-soft/50"
+                    : "text-sub hover:text-content hover:bg-white/[0.04]"
+                  }
+                `}
+              >
+                <Compass size={15} weight={anglePath ? "fill" : "light"} className={anglePath ? "text-accent" : "text-muted"} />
+                {anglePath ? "Change angle" : "From angle"}
+              </button>
+            )}
             <button
               type="button"
               className="

@@ -15,21 +15,45 @@ import {
 } from "@phosphor-icons/react";
 import type { ContentType } from "@/lib/compose-context";
 
-const TYPE_OPTIONS: {
+interface TypeOption {
   value: ContentType;
   label: string;
   Icon: typeof FilmStrip;
-}[] = [
-  { value: "reel", label: "Reel", Icon: FilmStrip },
-  { value: "carousel", label: "Carousel", Icon: Images },
-  { value: "post", label: "Post", Icon: Article },
-  { value: "angle", label: "Angle", Icon: Compass },
-  { value: "script", label: "Script", Icon: FileText },
-  { value: "analyse", label: "Analyse", Icon: ChartBar },
-  { value: "repurpose", label: "Repurpose", Icon: ArrowsClockwise },
-  { value: "import-template", label: "Template", Icon: ImageSquare },
-  { value: "add-platform", label: "Platform", Icon: PlusCircle },
+}
+
+interface TypeGroup {
+  label: string;
+  options: TypeOption[];
+}
+
+const TYPE_GROUPS: TypeGroup[] = [
+  {
+    label: "Create",
+    options: [
+      { value: "reel", label: "Reel", Icon: FilmStrip },
+      { value: "carousel", label: "Carousel", Icon: Images },
+      { value: "post", label: "Post", Icon: Article },
+    ],
+  },
+  {
+    label: "Pipeline",
+    options: [
+      { value: "angle", label: "Angle", Icon: Compass },
+      { value: "script", label: "Script", Icon: FileText },
+      { value: "analyse", label: "Analyse", Icon: ChartBar },
+      { value: "repurpose", label: "Repurpose", Icon: ArrowsClockwise },
+    ],
+  },
+  {
+    label: "Setup",
+    options: [
+      { value: "import-template", label: "Import template", Icon: ImageSquare },
+      { value: "add-platform", label: "Add platform", Icon: PlusCircle },
+    ],
+  },
 ];
+
+const ALL_OPTIONS = TYPE_GROUPS.flatMap((g) => g.options);
 
 interface TypeSelectorProps {
   value: ContentType;
@@ -39,7 +63,7 @@ interface TypeSelectorProps {
 export default function TypeSelector({ value, onChange }: TypeSelectorProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const current = TYPE_OPTIONS.find((o) => o.value === value) ?? TYPE_OPTIONS[0];
+  const current = ALL_OPTIONS.find((o) => o.value === value) ?? ALL_OPTIONS[0];
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -78,51 +102,66 @@ export default function TypeSelector({ value, onChange }: TypeSelectorProps) {
         />
       </button>
 
-      {/* Dropdown */}
+      {/* Dropdown — horizontal columns */}
       <div
         className={`
-          absolute bottom-full left-0 mb-2 w-44
-          rounded-2xl bg-panel/95 backdrop-blur-xl
+          absolute bottom-full right-0 mb-2
+          rounded-2xl bg-panel backdrop-blur-xl
           border border-white/[0.08]
-          shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.03)]
+          shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.03)]
           overflow-hidden
           transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
-          origin-bottom-left
+          origin-bottom-right
           ${open
             ? "opacity-100 scale-100 pointer-events-auto translate-y-0"
             : "opacity-0 scale-95 pointer-events-none translate-y-1"
           }
         `}
       >
-        <div className="p-1.5">
-          {TYPE_OPTIONS.map((option) => {
-            const isSelected = option.value === value;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => {
-                  onChange(option.value);
-                  setOpen(false);
-                }}
-                className={`
-                  w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px]
-                  transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
-                  ${isSelected
-                    ? "bg-white/[0.06] text-content font-medium"
-                    : "text-sub hover:text-content hover:bg-white/[0.04]"
-                  }
-                `}
-              >
-                <option.Icon
-                  size={16}
-                  weight={isSelected ? "fill" : "light"}
-                  className={isSelected ? "text-accent" : "text-muted"}
-                />
-                {option.label}
-              </button>
-            );
-          })}
+        <div className="flex p-1.5 gap-1">
+          {TYPE_GROUPS.map((group, groupIdx) => (
+            <div
+              key={group.label}
+              className={`
+                min-w-[140px]
+                ${groupIdx > 0 ? "border-l border-white/[0.06] pl-1" : ""}
+              `}
+            >
+              <div className="px-2.5 pt-1.5 pb-1.5">
+                <span className="text-[10px] font-semibold tracking-[0.1em] uppercase text-muted">
+                  {group.label}
+                </span>
+              </div>
+              {group.options.map((option) => {
+                const isSelected = option.value === value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      onChange(option.value);
+                      setOpen(false);
+                    }}
+                    className={`
+                      w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-[13px]
+                      transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
+                      ${isSelected
+                        ? "bg-white/[0.08] text-content font-medium"
+                        : "text-sub hover:text-content hover:bg-white/[0.04]"
+                      }
+                    `}
+                  >
+                    <option.Icon
+                      size={15}
+                      weight={isSelected ? "fill" : "light"}
+                      className={isSelected ? "text-accent" : "text-muted"}
+                    />
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </div>
     </div>

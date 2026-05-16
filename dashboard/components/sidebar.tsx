@@ -36,6 +36,23 @@ const TYPE_ICONS: Record<string, typeof FilmStrip> = {
   post: Article,
 };
 
+function formatTopic(topic: string): string {
+  try {
+    const url = new URL(topic);
+    const host = url.hostname.replace(/^www\./, "");
+    const path = url.pathname.replace(/\/$/, "").split("/").filter(Boolean).pop();
+    return path ? `${host} — ${path.replace(/[-_]/g, " ")}` : host;
+  } catch {
+    // not a URL
+  }
+
+  if (/^[A-Za-z0-9_-]{8,14}$/.test(topic)) {
+    return `Repurposed · ${topic}`;
+  }
+
+  return topic;
+}
+
 interface HistoryGroup {
   label: string;
   entries: RegistryEntry[];
@@ -177,7 +194,7 @@ export default function Sidebar() {
                         className="text-muted shrink-0 group-hover:text-accent transition-colors duration-300"
                       />
                       <span className="text-[12px] truncate leading-tight">
-                        {entry.topic}
+                        {formatTopic(entry.topic)}
                       </span>
                     </Link>
                   );

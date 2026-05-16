@@ -19,7 +19,7 @@ export type ContentType =
   | "import-template"
   | "add-platform";
 export type Platform = "instagram" | "linkedin" | "x";
-export type SlideCount = 5 | 6;
+export type SlideCount = 5 | 6 | 7 | 8 | 9 | 10;
 
 export interface ComposeState {
   type: ContentType;
@@ -32,6 +32,8 @@ export interface ComposeState {
   avatarName?: string;
   voiceName?: string;
   styleName?: string;
+  anglePath?: string;
+  angleName?: string;
   paramOverrides: Record<string, unknown>;
   attachments: string[];
   activeJobId: string | null;
@@ -46,6 +48,8 @@ type ComposeAction =
   | { kind: "SET_AVATAR"; avatarId: string; avatarName?: string }
   | { kind: "SET_VOICE"; voiceId: string; voiceName?: string }
   | { kind: "SET_STYLE"; styleId: string; styleName?: string }
+  | { kind: "SET_ANGLE"; anglePath: string; angleName?: string }
+  | { kind: "CLEAR_ANGLE" }
   | { kind: "SET_PARAM_OVERRIDE"; key: string; value: unknown }
   | { kind: "CLEAR_PARAM_OVERRIDE"; key: string }
   | { kind: "ADD_ATTACHMENT"; url: string }
@@ -81,6 +85,10 @@ function composeReducer(state: ComposeState, action: ComposeAction): ComposeStat
       return { ...state, voiceId: action.voiceId, voiceName: action.voiceName };
     case "SET_STYLE":
       return { ...state, styleId: action.styleId, styleName: action.styleName };
+    case "SET_ANGLE":
+      return { ...state, anglePath: action.anglePath, angleName: action.angleName };
+    case "CLEAR_ANGLE":
+      return { ...state, anglePath: undefined, angleName: undefined };
     case "SET_PARAM_OVERRIDE":
       return { ...state, paramOverrides: { ...state.paramOverrides, [action.key]: action.value } };
     case "CLEAR_PARAM_OVERRIDE": {

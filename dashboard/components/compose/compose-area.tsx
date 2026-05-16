@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { ArrowRight, Link as LinkIcon, X } from "@phosphor-icons/react";
+import { ArrowRight, Compass, Link as LinkIcon, X } from "@phosphor-icons/react";
 import { useCompose } from "@/lib/compose-context";
 import TypeSelector from "./type-selector";
 import ControlPills from "./control-pills";
@@ -29,17 +29,20 @@ export default function ComposeArea() {
     el.style.height = `${Math.max(el.scrollHeight, 56)}px`;
   }, [state.topic]);
 
+  const canGenerate = state.topic.trim() || state.anglePath;
+
   async function handleGenerate() {
-    if (!state.topic.trim()) return;
+    if (!canGenerate) return;
 
     const payload = {
       type: state.type,
-      topic: state.topic,
+      topic: state.topic || state.angleName || "from angle",
       platform: state.platform,
       slides: state.type === "carousel" ? state.slides : undefined,
       avatarId: state.type === "reel" ? state.avatarId : undefined,
       voiceId: state.type === "reel" ? state.voiceId : undefined,
       styleId: ["reel", "carousel", "post"].includes(state.type) ? state.styleId : undefined,
+      fromAngle: state.anglePath,
       attachments: state.attachments,
       params: Object.keys(state.paramOverrides).length > 0 ? state.paramOverrides : undefined,
     };
@@ -100,6 +103,21 @@ export default function ComposeArea() {
 
           {/* Text input */}
           <div className="px-6 py-4">
+            {state.anglePath && (
+              <div className="flex items-center gap-2 mb-3 pb-3 border-b border-white/[0.04]">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent-soft text-[11px] text-accent font-medium max-w-[90%]">
+                  <Compass size={12} weight="fill" />
+                  <span className="truncate">{state.angleName}</span>
+                  <button
+                    type="button"
+                    onClick={() => dispatch({ kind: "CLEAR_ANGLE" })}
+                    className="ml-0.5 hover:text-content transition-colors"
+                  >
+                    <X size={10} weight="bold" />
+                  </button>
+                </span>
+              </div>
+            )}
             <textarea
               ref={textareaRef}
               value={state.topic}
@@ -110,7 +128,15 @@ export default function ComposeArea() {
                   handleGenerate();
                 }
               }}
-              placeholder="Describe your content idea..."
+              placeholder={
+                state.anglePath && state.attachments.length > 0
+                  ? "Add extra direction (optional)..."
+                  : state.anglePath
+                    ? "Add notes or context (optional)..."
+                    : state.attachments.length > 0
+                      ? "Add direction — URL will be used as research..."
+                      : "Describe your content idea..."
+              }
               rows={1}
               className="
                 w-full bg-transparent border-none outline-none resize-none
@@ -152,6 +178,10 @@ export default function ComposeArea() {
             <div className="flex items-center gap-1.5">
               <AttachMenu
                 onAttachUrl={(url) => dispatch({ kind: "ADD_ATTACHMENT", url })}
+                contentType={state.type}
+                anglePath={state.anglePath}
+                onAngleSelect={(path, name) => dispatch({ kind: "SET_ANGLE", anglePath: path, angleName: name })}
+                onAngleClear={() => dispatch({ kind: "CLEAR_ANGLE" })}
               />
               <SettingsDropdown
                 type={state.type}
@@ -171,13 +201,13 @@ export default function ComposeArea() {
               <button
                 type="button"
                 onClick={handleGenerate}
-                disabled={!state.topic.trim() || isGenerating}
+                disabled={!canGenerate || isGenerating}
                 className={`
                   group flex items-center gap-2 pl-5 pr-4 py-2.5 rounded-full
                   text-[13px] font-semibold
                   transition-all duration-400 ease-[cubic-bezier(0.32,0.72,0,1)]
                   active:scale-[0.96]
-                  ${state.topic.trim() && !isGenerating
+                  ${canGenerate && !isGenerating
                     ? "bg-gradient-to-r from-accent to-emerald text-white shadow-[0_0_24px_rgba(167,139,250,0.25),0_0_8px_rgba(52,211,153,0.15)] hover:shadow-[0_0_32px_rgba(167,139,250,0.35),0_0_12px_rgba(52,211,153,0.25)] hover:scale-[1.02]"
                     : "bg-white/[0.06] text-muted cursor-not-allowed"
                   }
@@ -195,7 +225,7 @@ export default function ComposeArea() {
                       size={15}
                       weight="bold"
                       className={`transition-transform duration-300 ${
-                        state.topic.trim() ? "group-hover:translate-x-0.5" : ""
+                        canGenerate ? "group-hover:translate-x-0.5" : ""
                       }`}
                     />
                   </>

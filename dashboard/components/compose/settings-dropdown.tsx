@@ -30,7 +30,7 @@ const TYPE_CONFIG_KEYS: Record<string, { key: string; label: string; options?: s
     { key: "grade", label: "Color grade", options: ["auto", "none"] },
   ],
   carousel: [
-    { key: "slides", label: "Slides", options: ["5", "6"] },
+    { key: "slides", label: "Slides", options: ["5", "6", "7", "8", "9", "10"] },
     { key: "mode", label: "Mode", options: ["preview", "final"] },
   ],
   post: [

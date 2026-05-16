@@ -75,7 +75,7 @@ const COMMAND_FIELDS: { section: string; label: string; fields: FieldDef[] }[] =
     section: "make_carousel",
     label: "make-carousel",
     fields: [
-      { key: "slides", label: "Slides", type: "enum", options: ["5", "6"] },
+      { key: "slides", label: "Slides", type: "enum", options: ["5", "6", "7", "8", "9", "10"] },
       { key: "mode", label: "Mode", type: "enum", options: ["preview", "auto", "manual"] },
     ],
   },

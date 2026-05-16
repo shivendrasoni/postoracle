@@ -1,6 +1,6 @@
 ---
-description: Generate a 5–6 slide carousel (images + caption) ready to post on Instagram or LinkedIn.
-argument-hint: "<point|url|github-repo> [--platform instagram|linkedin] [--slides 5|6] [--auto|--preview|--manual]"
+description: Generate a 5–10 slide carousel (images + caption) ready to post on Instagram or LinkedIn.
+argument-hint: "<point|url|github-repo> [--platform instagram|linkedin] [--slides 5-10] [--auto|--preview|--manual]"
 allowed-tools: Bash, Read, Write, WebFetch, WebSearch
 ---
 
@@ -13,7 +13,7 @@ Orchestrate the carousel creation pipeline below. Work sequentially. Stop and re
 Parse `$ARGUMENTS`:
 - `<input>` — everything before any `--` flags (required); can be plain text, HTTP URL, or GitHub repo URL
 - `--platform` — default from config (→ 1080×1080 for instagram, 1080×1350 for linkedin)
-- `--slides` — default from config; must be `5` or `6`. If any other value is provided, stop with: `[ERROR] --slides must be 5 or 6`
+- `--slides` — default from config; must be between `5` and `10`. If any other value is provided, stop with: `[ERROR] --slides must be between 5 and 10`
 - mode flag — `--preview`, `--auto`, or `--manual` — default from config. If multiple mode flags are present, use the most restrictive: `--manual` > `--preview` > `--auto`
 - `--auto-publish instagram|linkedin|all` — optional; if present, publish after pipeline completes. Parse the value that follows `--auto-publish` as `$AUTO_PUBLISH`.
 - `--from-angle <path>` — optional; path to a vault angle file. Skips Stage 1 (Research). The angle's talking_points seed the slide plan.
@@ -140,16 +140,14 @@ When planning, always explain:
 - Last slide: type `cta`, layout `image-bg-text`
 - Middle slides: type `value`, layout `text-only` by default
 - A middle slide gets `image-split` only when a visual adds clear signal (diagram, before/after) — never on text-heavy slides
-- For `--slides 5`: hook + 3 value + CTA
-- For `--slides 6`: hook + 4 value + CTA
+- For `--slides N`: hook + (N-2) value + CTA
 
 **Platform dimensions (set from `--platform` flag):**
 - `instagram`: set `plan.json`'s `dimensions` to `{ "width": 1080, "height": 1080 }`
 - `linkedin`: set `plan.json`'s `dimensions` to `{ "width": 1080, "height": 1350 }`
 
 **Slide count (set from `--slides` flag):**
-- For `--slides 5`: produce exactly 5 slides — hook + 3 value + CTA
-- For `--slides 6`: produce exactly 6 slides — hook + 4 value + CTA
+- For `--slides N` (5–10): produce exactly N slides — hook + (N-2) value + CTA
 
 **plan.json schema:**
 ```json

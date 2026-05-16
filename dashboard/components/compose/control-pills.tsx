@@ -200,15 +200,18 @@ export default function ControlPills({
             <PlatformPill platform="instagram" current={platform} onClick={() => onPlatformChange("instagram")} />
             <PlatformPill platform="linkedin" current={platform} onClick={() => onPlatformChange("linkedin")} />
           </div>
-          <div className="flex items-center gap-0.5 rounded-full bg-white/[0.03] border border-white/[0.06] p-0.5">
-            <Pill active={slides === 5} onClick={() => onSlidesChange(5)}>
-              <Stack size={13} weight="light" />
-              5
-            </Pill>
-            <Pill active={slides === 6} onClick={() => onSlidesChange(6)}>
-              <Stack size={13} weight="light" />
-              6
-            </Pill>
+          <div className="flex items-center gap-1.5 rounded-full bg-white/[0.03] border border-white/[0.06] px-2.5 py-1">
+            <Stack size={13} weight="light" className="text-muted shrink-0" />
+            <select
+              value={slides}
+              onChange={(e) => onSlidesChange(Number(e.target.value) as SlideCount)}
+              className="bg-transparent text-[12px] font-medium text-content outline-none cursor-pointer appearance-none pr-3"
+              style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right center" }}
+            >
+              {[5, 6, 7, 8, 9, 10].map((n) => (
+                <option key={n} value={n}>{n} slides</option>
+              ))}
+            </select>
           </div>
         </>
       )}

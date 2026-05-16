@@ -8,13 +8,17 @@ import {
   Circle,
   WarningCircle,
   PaperPlaneRight,
+  PaperPlaneTilt,
 } from "@phosphor-icons/react";
 import { useJobStream, type JobStage } from "@/lib/use-job-stream";
+import type { RegistryEntry } from "@/lib/types";
+import PublishModal from "@/components/publish-modal";
 
 interface ProgressDrawerProps {
   jobId: string | null;
   contentType: string;
   topic: string;
+  platform: string;
   onClose: () => void;
 }
 
@@ -41,6 +45,7 @@ export default function ProgressDrawer({
   jobId,
   contentType,
   topic,
+  platform,
   onClose,
 }: ProgressDrawerProps) {
   const {
@@ -55,6 +60,7 @@ export default function ProgressDrawer({
   } = useJobStream(jobId);
 
   const [refineText, setRefineText] = useState("");
+  const [showPublish, setShowPublish] = useState(false);
   const thoughtsEndRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -224,11 +230,28 @@ export default function ProgressDrawer({
               {/* Done state */}
               {done && sessionDir && (
                 <div className="mt-4 p-4 rounded-xl bg-emerald-soft border border-emerald/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle size={16} weight="fill" className="text-emerald" />
-                    <span className="text-[13px] font-medium text-emerald">
-                      Content ready
-                    </span>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle size={16} weight="fill" className="text-emerald" />
+                      <span className="text-[13px] font-medium text-emerald">
+                        Content ready
+                      </span>
+                    </div>
+                    {["reel", "carousel", "post"].includes(contentType) && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPublish(true)}
+                        className="
+                          flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg
+                          bg-accent text-white text-[12px] font-medium
+                          hover:bg-accent/80 active:scale-[0.96]
+                          transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]
+                        "
+                      >
+                        <PaperPlaneTilt size={13} weight="fill" />
+                        Publish
+                      </button>
+                    )}
                   </div>
                   <p className="text-[12px] text-sub">
                     Output saved to{" "}
@@ -284,6 +307,29 @@ export default function ProgressDrawer({
           </div>
         </div>
       </div>
+
+      {/* Publish modal */}
+      {showPublish && done && sessionDir && (
+        <PublishModal
+          entry={{
+            id: sessionDir.split("/").pop() ?? sessionDir,
+            type: contentType as RegistryEntry["type"],
+            topic,
+            source_url: null,
+            platforms: [platform],
+            status: "draft",
+            virality_score: null,
+            created_at: new Date().toISOString(),
+            scheduled_at: null,
+            published_at: {},
+            published_urls: {},
+            session_dir: sessionDir,
+            tags: [],
+          }}
+          onClose={() => setShowPublish(false)}
+          onPublished={() => setShowPublish(false)}
+        />
+      )}
     </>
   );
 }

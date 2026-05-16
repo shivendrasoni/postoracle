@@ -13,6 +13,7 @@ export default function DrawerShell() {
       jobId={state.activeJobId}
       contentType={state.type}
       topic={state.topic}
+      platform={state.platform}
       onClose={() => dispatch({ kind: "CLOSE_DRAWER" })}
     />
   );
